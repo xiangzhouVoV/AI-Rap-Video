@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="night" cx="25%" cy="15%" r="100%">
+      <stop stop-color="#3a1421"/>
+      <stop offset=".58" stop-color="#151016"/>
+      <stop offset="1" stop-color="#0d0c10"/>
+    </radialGradient>
+    <linearGradient id="crimson" x1="19" y1="15" x2="45" y2="49" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffb08a"/>
+      <stop offset=".24" stop-color="#ee5266"/>
+      <stop offset=".62" stop-color="#a62043"/>
+      <stop offset="1" stop-color="#ef6970"/>
+    </linearGradient>
+    <radialGradient id="starlight" cx="0" cy="0" r="1" gradientTransform="translate(23 21) scale(12)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffe4bd" stop-opacity=".65"/>
+      <stop offset="1" stop-color="#ffbb8f" stop-opacity="0"/>
+    </radialGradient>
+    <path id="letter-r" fill-rule="evenodd" clip-rule="evenodd" d="M17 15h15c9 0 14 4.5 14 12 0 5.5-2.7 9.5-7.5 11.3L47 49H36l-7.5-10H26v10h-9V15Zm9 8v8h6c3.5 0 5-1.5 5-4s-1.5-4-5-4h-6Z"/>
+    <clipPath id="r-fill">
+      <use href="#letter-r"/>
+    </clipPath>
+  </defs>
+  <rect x=".5" y=".5" width="63" height="63" rx="17.5" fill="url(#night)" stroke="#6e293e"/>
+  <use href="#letter-r" fill="url(#crimson)" stroke="#f47783" stroke-opacity=".45" stroke-width=".6"/>
+  <g clip-path="url(#r-fill)">
+    <circle cx="23" cy="21" r="12" fill="url(#starlight)"/>
+    <path d="m23 15.5 1.2 4.3 4.3 1.2-4.3 1.2-1.2 4.3-1.2-4.3-4.3-1.2 4.3-1.2Z" fill="#ffe8c9"/>
+    <circle cx="39" cy="21" r=".85" fill="#ffd3c3"/>
+    <circle cx="20.5" cy="34" r=".65" fill="#fdb6c0"/>
+    <circle cx="39.5" cy="44" r=".8" fill="#ffd2bf"/>
+    <circle cx="22" cy="43.5" r=".45" fill="#ffd2bf"/>
+  </g>
+</svg>

@@ -1,0 +1,82 @@
+.control {
+  position: relative;
+  flex-shrink: 0;
+}
+.button,
+.menu summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-soft);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.button:hover,
+.menu summary:hover {
+  border-color: var(--accent-border);
+}
+.menu summary {
+  cursor: pointer;
+  list-style: none;
+}
+.menu summary::-webkit-details-marker { display: none; }
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.name {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dropdown,
+.error {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  width: min(280px, calc(100vw - 30px));
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  box-shadow: 0 12px 32px #00000059;
+  overflow-wrap: anywhere;
+}
+.dropdown p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.dropdown button,
+.error button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+.error {
+  z-index: 1;
+  color: var(--accent-ink);
+  font-size: 12px;
+}
+@media (max-width: 560px) {
+  .name { display: none; }
+  .button, .menu summary { padding: 7px 8px; }
+  .button svg { display: none; }
+}

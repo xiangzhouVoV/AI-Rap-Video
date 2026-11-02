@@ -1,0 +1,30 @@
+.card {
+  width: min(460px, calc(100% - 40px));
+  margin: 80px auto 120px;
+  padding: 32px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  text-align: center;
+}
+.card h1 {
+  margin: 12px 0;
+  font-size: 28px;
+  line-height: 1.2;
+  letter-spacing: -0.8px;
+}
+.card > p { color: var(--muted); }
+.button {
+  display: block;
+  width: 100%;
+  margin-top: 24px;
+  padding: 13px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 700;
+}
+.button:hover { background: var(--accent-hover); }
+.back { display: inline-block; margin-top: 18px; font-size: 12px; }
+.card .error { margin-top: 18px; color: var(--accent-ink); }
