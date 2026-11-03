@@ -31,7 +31,8 @@ Cloudflare Workers Builds 配置：
 - 根目录：仓库根目录。
 - 构建命令：`npm run cf:build`。
 - 部署命令：`npx opennextjs-cloudflare deploy`。
-- 构建环境设置正式域名的 `APP_ORIGIN`、`NEXT_PUBLIC_SITE_URL`；不要设置本地代理 `AUTH_BACKEND_URL`。
+- 构建环境设置 `NEXT_PUBLIC_SITE_URL=https://airaptovideo.app` 和 `INDEXABLE=false`；本地代理 `AUTH_BACKEND_URL` 留空。
+- 正式域名为 `airaptovideo.app`。`wrangler.jsonc` 已声明该主机名的 Custom Domain，部署时应用绑定；域名需在当前 Cloudflare 账号中处于 Active 状态。域名配置见 [Cloudflare 官方说明](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)。
 
 必须先运行 `npm run cf:build`，生成 `.open-next/worker.js`、静态资源及编译后的 OpenNext 配置，再执行部署。Wrangler 4.156.2 的真实 `deploy` 会先转交给 OpenNext，不能依赖 `wrangler.jsonc` 的构建钩子生成这些文件；`wrangler deploy --dry-run` 的路径不同，不能单独用它证明真实部署会先构建。
 

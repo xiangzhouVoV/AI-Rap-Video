@@ -16,5 +16,11 @@
       "binding": "WORKER_SELF_REFERENCE",
       "service": "ai-rap-video"
     }
+  ],
+  "routes": [
+    {
+      "pattern": "airaptovideo.app",
+      "custom_domain": true
+    }
   ]
 }
