@@ -22,6 +22,29 @@ npm run metrics
 
 测试使用独立临时服务、合成图片与本地模拟视频服务，不消耗生成费用。`npm run metrics -- 2026-10-24` 可指定统计开始时间；默认最近七天，只输出上传率、真实生成成功率和付款弹窗点击率及其分母。没有真实数据时比率为 `null`。
 
+## Cloudflare Workers 部署
+
+使用 Node.js 24（见 `.nvmrc`）。仓库固定 OpenNext 和 Wrangler 版本，`npm run build` 使用 Webpack，避免当前 Next.js 16.4.3 的 Turbopack 外部依赖名称（如 `sharp-<hash>`）导致 OpenNext 打包失败。开发服务器仍使用 Next.js 默认构建器。
+
+Cloudflare Workers Builds 配置：
+
+- 根目录：仓库根目录。
+- 构建命令：留空。
+- 部署命令：`npx wrangler deploy`（也可使用 `npm run deploy`）。
+- 构建环境设置正式域名的 `APP_ORIGIN`、`NEXT_PUBLIC_SITE_URL`；不要设置本地代理 `AUTH_BACKEND_URL`。
+
+`wrangler.jsonc` 的 `build.command` 会调用 `npm run cf:build`，完成 Next.js 编译和 OpenNext 转换，再部署 `.open-next/worker.js` 和 `.open-next/assets`。不再依赖部署过程中临时执行迁移。当前没有配置 ISR/R2 缓存；后续使用动态缓存时需单独接入。
+
+本地验证：
+
+```sh
+npm ci
+npm run cf:check  # 构建并进行 Wrangler dry-run，不发布
+npm run preview   # 构建并以 Workers 运行时在 8788 端口预览
+```
+
+**当前上线范围与限制：**这份配置解决前端页面的 Workers 构建和运行。Google 登录仍需要独立后端、D1、OAuth 配置及 `/api/auth/*`、`/api/me` 的生产路由。现有上传/生成/事件等演示接口按 Node.js 服务实现：上传依赖原生 `sharp`，图片、任务和用量存储依赖本地 `.data` 与文件锁；这些接口尚不适用于 Workers，不能因构建成功而视为可用。后续需在独立后端接入 R2/D1，并替换图片处理能力。`next/image` 的 Images binding 不会自动替代业务接口中的 `sharp` 调用。
+
 ## 已实现
 
 - 首页、根级 I Found You 热梗页、全部 P1/P2 页面与 `/effects/` 目录；唯一页面关键词、canonical、sitemap、robots、viewport 和首页内链。
