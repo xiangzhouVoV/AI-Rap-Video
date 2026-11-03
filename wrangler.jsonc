@@ -16,8 +16,5 @@
       "binding": "WORKER_SELF_REFERENCE",
       "service": "ai-rap-video"
     }
-  ],
-  "build": {
-    "command": "npm run cf:build"
-  }
+  ]
 }

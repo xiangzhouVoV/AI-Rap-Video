@@ -11,9 +11,9 @@
     "metrics": "node scripts/metrics.mjs",
     "verify": "npm run typecheck && npm test && npm run build",
     "cf:build": "opennextjs-cloudflare build",
-    "cf:check": "wrangler deploy --dry-run",
-    "preview": "wrangler dev --port 8788",
-    "deploy": "wrangler deploy"
+    "cf:check": "npm run cf:build && wrangler deploy --dry-run",
+    "preview": "npm run cf:build && opennextjs-cloudflare preview --port 8788",
+    "deploy": "npm run cf:build && opennextjs-cloudflare deploy"
   },
   "engines": {
     "node": ">=22.12.0"

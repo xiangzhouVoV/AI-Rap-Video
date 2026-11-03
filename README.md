@@ -29,11 +29,13 @@ npm run metrics
 Cloudflare Workers Builds 配置：
 
 - 根目录：仓库根目录。
-- 构建命令：留空。
-- 部署命令：`npx wrangler deploy`（也可使用 `npm run deploy`）。
+- 构建命令：`npm run cf:build`。
+- 部署命令：`npx opennextjs-cloudflare deploy`。
 - 构建环境设置正式域名的 `APP_ORIGIN`、`NEXT_PUBLIC_SITE_URL`；不要设置本地代理 `AUTH_BACKEND_URL`。
 
-`wrangler.jsonc` 的 `build.command` 会调用 `npm run cf:build`，完成 Next.js 编译和 OpenNext 转换，再部署 `.open-next/worker.js` 和 `.open-next/assets`。不再依赖部署过程中临时执行迁移。当前没有配置 ISR/R2 缓存；后续使用动态缓存时需单独接入。
+必须先运行 `npm run cf:build`，生成 `.open-next/worker.js`、静态资源及编译后的 OpenNext 配置，再执行部署。Wrangler 4.156.2 的真实 `deploy` 会先转交给 OpenNext，不能依赖 `wrangler.jsonc` 的构建钩子生成这些文件；`wrangler deploy --dry-run` 的路径不同，不能单独用它证明真实部署会先构建。
+
+本地一键部署可使用 `npm run deploy`，它显式串联 OpenNext 构建与部署。Cloudflare 控制台按上面的两个字段分别填写即可，无需重复构建。当前没有配置 ISR/R2 缓存；后续使用动态缓存时需单独接入。
 
 本地验证：
 
