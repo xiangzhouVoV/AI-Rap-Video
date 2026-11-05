@@ -14,13 +14,15 @@ type Asset = { id: string; url: string; externalReady?: boolean };
 type Config = {
   userId: string;
   template: { version: number };
-  capabilities: { generationEnabled: boolean; uploadsPublic: boolean };
+  capabilities: { generationEnabled: boolean; uploadsPublic: boolean; templatePaused?: boolean; reason?: string };
 };
 type Job = {
   id: string;
   status: "submitting" | "processing" | "succeeded" | "failed" | "canceled" | "refunded" | "expired" | "submission_unknown";
   providerTaskId?: string;
   canRetry?: boolean;
+  retryUsesCredits?: boolean;
+  templatePaused?: boolean;
   estimatedCredits?: number;
   consumedCredits?: number;
   refundedCredits?: number;
@@ -38,14 +40,14 @@ type GenerationBody = {
 };
 
 class RequestError extends Error {
-  constructor(message: string, public status?: number) { super(message); }
+  constructor(message: string, public status?: number, public code?: string) { super(message); }
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const timeout = AbortSignal.timeout(65_000);
   const response = await fetch(url, { ...init, signal: init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout, cache: "no-store" });
   const data = await response.json().catch(() => { throw new RequestError("The server returned an unreadable response. Check the task before starting another generation.", response.status); });
-  if (!response.ok) throw new RequestError(typeof data.error === "string" ? data.error : data.error?.message || "The request could not be completed.", response.status);
+  if (!response.ok) throw new RequestError(typeof data.error === "string" ? data.error : data.error?.message || "The request could not be completed.", response.status, data.error?.code);
   return data as T;
 }
 
@@ -105,9 +107,12 @@ export default function CruiseGenerator() {
   const storageKey = useRef<string | null>(null);
   const photoInputs = useRef<Partial<Record<Slot, HTMLInputElement | null>>>({});
   const templateReady = (config?.template.version ?? 0) >= 3;
-  const generationEnabled = templateReady && config?.capabilities.generationEnabled === true;
+  const templatePaused = config?.capabilities.templatePaused === true || job?.templatePaused === true;
+  const generationEnabled = templateReady && config?.capabilities.generationEnabled === true && !templatePaused;
+  const canRetry = job?.canRetry === true && templateReady && (generationEnabled || templatePaused);
   const active = starting || !!savedTask?.retryId || !!job && !terminal(job.status) || !!savedTask && !job;
-  const editingDisabled = active || Object.values(uploading).some(Boolean);
+  const inputsLocked = active || templatePaused;
+  const editingDisabled = inputsLocked || Object.values(uploading).some(Boolean);
 
   function rememberTask(task: SavedTask) {
     if (!storageKey.current) throw new Error("Sign in before starting a generation.");
@@ -187,7 +192,7 @@ export default function CruiseGenerator() {
   }, [job, paused, starting]);
 
   async function upload(file: File | undefined, slot: Slot) {
-    if (!file || active || uploading[slot]) return;
+    if (!file || inputsLocked || uploading[slot]) return;
     setError("");
     if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { setError("Choose a JPG, PNG, or WebP photo."); return; }
     setUploading((previous) => ({ ...previous, [slot]: true }));
@@ -234,6 +239,7 @@ export default function CruiseGenerator() {
     event.preventDefault();
     if (editingDisabled || !generationEnabled) return;
     setError("");
+    const previousTask = savedRef.current;
     let body: GenerationBody;
     try {
       if (!consent) throw new Error("Confirm that you have permission to use both photos.");
@@ -253,7 +259,14 @@ export default function CruiseGenerator() {
       const result = await request<{ job: Job }>("/api/template-generations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       acceptJob(result.job);
     } catch (caught) {
-      if (caught instanceof RequestError && [400, 401, 403, 404, 413, 415, 422, 429].includes(caught.status || 0)) {
+      if (caught instanceof RequestError && caught.code === "TEMPLATE_PAUSED") {
+        submittedBody.current = null;
+        try {
+          if (previousTask) rememberTask(previousTask);
+          else if (storageKey.current) localStorage.removeItem(storageKey.current);
+        } catch { setError("The browser could not update its task recovery record."); }
+        setConfigVersion((value) => value + 1);
+      } else if (caught instanceof RequestError && [400, 401, 403, 404, 413, 415, 422, 429].includes(caught.status || 0)) {
         setError(caught.message);
         if (caught.status === 401) setLoginRequired(true);
         try { if (storageKey.current) localStorage.removeItem(storageKey.current); } catch { /* No task was accepted. */ }
@@ -288,13 +301,17 @@ export default function CruiseGenerator() {
     try {
       const result = await request<{ job: Job }>("/api/template-generations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       acceptJob(result.job);
-    } catch (caught) { setTaskError((caught as Error).message); setPaused(true); }
+    } catch (caught) {
+      setTaskError((caught as Error).message);
+      setPaused(true);
+      if (caught instanceof RequestError && caught.code === "TEMPLATE_PAUSED") setConfigVersion((value) => value + 1);
+    }
     finally { setStarting(false); }
   }
 
   async function retryUnfinished() {
     const task = savedRef.current;
-    if (!job?.canRetry || !task || checking || starting || !generationEnabled) return;
+    if (!job || !canRetry || !task || checking || starting || loginRequired) return;
     const retryId = task.retryId ?? crypto.randomUUID();
     setStarting(true);
     setTaskError("");
@@ -307,6 +324,7 @@ export default function CruiseGenerator() {
     } catch (caught) {
       setTaskError((caught as Error).message);
       if (caught instanceof RequestError && caught.status === 401) setLoginRequired(true);
+      if (caught instanceof RequestError && caught.code === "TEMPLATE_PAUSED") setConfigVersion((value) => value + 1);
     } finally { setStarting(false); }
   }
 
@@ -324,18 +342,18 @@ export default function CruiseGenerator() {
   }
 
   function sourceSelector(slot: Slot) {
-    return <div className={ui.sourceTabs} role="group" aria-label={`${slotLabels[slot]} source`}>{(["upload", "url"] as const).map((source) => <button key={source} type="button" disabled={active || uploading[slot]} aria-pressed={sources[slot] === source} onClick={() => setSources((previous) => ({ ...previous, [slot]: source }))}>{source === "upload" ? "Upload file" : "HTTPS URL"}</button>)}</div>;
+    return <div className={ui.sourceTabs} role="group" aria-label={`${slotLabels[slot]} source`}>{(["upload", "url"] as const).map((source) => <button key={source} type="button" disabled={inputsLocked || uploading[slot]} aria-pressed={sources[slot] === source} onClick={() => setSources((previous) => ({ ...previous, [slot]: source }))}>{source === "upload" ? "Upload file" : "HTTPS URL"}</button>)}</div>;
   }
 
   function urlField(slot: Slot, placeholder: string) {
-    return <div className={ui.urlRow}><input id={`cruise-${slot}-url`} type="url" aria-label={`${slotLabels[slot]} direct HTTPS URL`} value={urls[slot]} onChange={(event) => changeUrl(slot, event.target.value)} placeholder={placeholder} spellCheck={false} disabled={active || uploading[slot]} /><button type="button" disabled={active || uploading[slot] || !urls[slot].trim()} onClick={() => preview(slot)}>Preview</button></div>;
+    return <div className={ui.urlRow}><input id={`cruise-${slot}-url`} type="url" aria-label={`${slotLabels[slot]} direct HTTPS URL`} value={urls[slot]} onChange={(event) => changeUrl(slot, event.target.value)} placeholder={placeholder} spellCheck={false} disabled={inputsLocked || uploading[slot]} /><button type="button" disabled={inputsLocked || uploading[slot] || !urls[slot].trim()} onClick={() => preview(slot)}>Preview</button></div>;
   }
 
   return (
     <section className={ui.lab} id="cruise-create" aria-labelledby="cruise-lab-heading">
       <div className={ui.header}><div><p className={ui.eyebrow}>YOUR CREATIVE SPACE</p><h2 id="cruise-lab-heading">Make the deck yours.</h2></div><span className={ui.badge}><span /> EXPERIMENTAL</span></div>
       {!config && <div className={ui.configNotice} role="status">{loginRequired ? <><span>Sign in to create your video.</span><Link href={loginUrl}>Sign in <ArrowUpRight size={13} aria-hidden="true" /></Link></> : configError ? <><span>{configError}</span><button type="button" onClick={() => setConfigVersion((value) => value + 1)}>Retry connection</button></> : <span><Loader2 size={13} className={ui.spin} aria-hidden="true" /> Checking generation access…</span>}</div>}
-      {config && !generationEnabled && <div className={ui.configNotice} role="status"><span>{templateReady ? "This template is temporarily unavailable." : "The template is being updated. Please check again shortly."}</span><button type="button" onClick={() => setConfigVersion((value) => value + 1)}>Check again</button></div>}
+      {config && !generationEnabled && <div className={ui.configNotice} role="status"><span>{templatePaused ? config.capabilities.reason || "New videos are paused while we update this template." : templateReady ? "This template is temporarily unavailable." : "The template is being updated. Please check again shortly."}</span><button type="button" onClick={() => setConfigVersion((value) => value + 1)}>Check again</button></div>}
       <div className={ui.layout}>
         <form className={ui.form} onSubmit={generate}>
           <div className={ui.inputs}>
@@ -343,7 +361,7 @@ export default function CruiseGenerator() {
               const isDancer = slot === "photo";
               const label = slotLabels[slot];
               const previewUrl = sources[slot] === "upload" ? assets[slot]?.url : previews[slot];
-              const locked = active || uploading[slot];
+              const locked = inputsLocked || uploading[slot];
               return (
                 <div key={slot}>
                   <div className={ui.fieldHeading}><label htmlFor={`cruise-${slot}${sources[slot] === "url" ? "-url" : ""}`}>{isDancer ? "01 / DECK DANCER" : "02 / BLANKET PARTNER"}</label><span>Required</span></div>
@@ -374,8 +392,8 @@ export default function CruiseGenerator() {
           <label className={ui.consent}><input type="checkbox" checked={consent} disabled={editingDisabled} onChange={(event) => setConsent(event.target.checked)} /><span>Both people have agreed to use their photos in this video.</span></label>
           {error && <p className={ui.error} role="alert">{error}</p>}
           {loginRequired && config && <p className={ui.error}><Link href={loginUrl}>Sign in again to continue.</Link></p>}
-          <button className={ui.generate} type="submit" disabled={editingDisabled || !generationEnabled || loginRequired || !consent}><Sparkles size={17} aria-hidden="true" />{starting ? "Submitting your generation…" : active ? "A generation is awaiting its result" : job && terminal(job.status) ? "Generate again · uses SeeAPI credits" : "Generate video · uses SeeAPI credits"}<ArrowUpRight size={16} aria-hidden="true" /></button>
-          <p className={ui.costNote}>This starts a real SeeAPI generation. Editing and previewing inputs do not start a task.</p>
+          <button className={ui.generate} type="submit" disabled={editingDisabled || !generationEnabled || loginRequired || !consent}><Sparkles size={17} aria-hidden="true" />{templatePaused ? "New videos paused" : starting ? "Submitting your generation…" : active ? "A generation is awaiting its result" : job && terminal(job.status) ? "Generate again · uses SeeAPI credits" : "Generate video · uses SeeAPI credits"}<ArrowUpRight size={16} aria-hidden="true" /></button>
+          {!templatePaused && <p className={ui.costNote}>This starts a real SeeAPI generation. Editing and previewing inputs do not start a task.</p>}
         </form>
         <aside className={ui.output} aria-labelledby="cruise-result-heading">
           <div className={ui.outputHeading}><h3 id="cruise-result-heading">Your result</h3><span>REAL GENERATION</span></div>
@@ -387,13 +405,13 @@ export default function CruiseGenerator() {
             {paused && <p className={ui.resultHint}>Automatic status checking is paused. Your existing task has not been marked failed.</p>}
             {missingTask && <div className={ui.missingTask}><p>This account has no task under the saved ID. You can clear this browser’s recovery record to prepare a new request. This action does not start a generation.</p><button type="button" disabled={checking || starting} onClick={clearMissingTask}>Clear recovery record</button></div>}
             <button className={ui.checkTask} type="button" disabled={checking || starting} onClick={() => void checkTask()}><RefreshCw size={14} className={checking ? ui.spin : undefined} aria-hidden="true" />{checking ? "Checking task…" : !job || job.status === "submission_unknown" ? "Check / recover this task" : paused ? "Resume status checking" : "Refresh task status"}</button>
-            {job?.canRetry && <button className={ui.checkTask} type="button" disabled={checking || starting || !generationEnabled || loginRequired} onClick={() => void retryUnfinished()}>
-              {savedTask?.retryId ? "Resume retry" : "Retry unfinished generation · uses SeeAPI credits"}
+            {canRetry && <button className={ui.checkTask} type="button" disabled={checking || starting || loginRequired} onClick={() => void retryUnfinished()}>
+              {job.retryUsesCredits === false ? "Finish saved video · no additional credits" : savedTask?.retryId ? "Resume retry" : "Retry unfinished generation · uses SeeAPI credits"}
             </button>}
             {!job && submittedBody.current && !starting && <button className={ui.retrySame} type="button" disabled={checking || !generationEnabled} onClick={() => void retrySubmission()}>Resend the same request · keep its ID</button>}
             <dl className={ui.taskDetails}><div><dt>Task</dt><dd>{job?.id || savedTask?.requestId}</dd></div>{job?.providerTaskId && <div><dt>SeeAPI task</dt><dd>{job.providerTaskId}</dd></div>}{savedTask && <div><dt>Request ID</dt><dd>{savedTask.requestId}</dd></div>}{job && <div><dt>Status</dt><dd>{job.status}</dd></div>}{typeof job?.estimatedCredits === "number" && <div><dt>Estimated provider credits</dt><dd>{job.estimatedCredits}</dd></div>}{typeof job?.consumedCredits === "number" && <div><dt>Consumed provider credits</dt><dd>{job.consumedCredits}</dd></div>}{typeof job?.refundedCredits === "number" && <div><dt>Returned provider credits</dt><dd>{job.refundedCredits}</dd></div>}</dl>
             <p className={ui.resultHint}>Only task identifiers are saved in this browser. Provider credits are separate from any future website credits.</p>
-          </div> : <div className={ui.emptyResult}><div className={ui.resultIcon}><Film size={29} strokeWidth={1.3} aria-hidden="true" /></div><h4>Your next moment starts here.</h4><p>Choose the dancer and partner photos, then generate your video. Your finished dance will appear here.</p><span><Check size={13} aria-hidden="true" /> No generation submitted</span></div>}
+          </div> : <div className={ui.emptyResult}><div className={ui.resultIcon}><Film size={29} strokeWidth={1.3} aria-hidden="true" /></div>{!templatePaused && <><h4>Your next moment starts here.</h4><p>Choose the dancer and partner photos, then generate your video. Your finished dance will appear here.</p></>}<span><Check size={13} aria-hidden="true" /> No generation submitted</span></div>}
           <div className={ui.outputFooter}><span>24K MAGIC</span><span>CRUISE DECK DANCE</span></div>
         </aside>
       </div>
