@@ -6,6 +6,7 @@ import { ArrowDownToLine, ArrowUpRight, Check, ExternalLink, Film, ImagePlus, Lo
 import ui from "./cruise-generator.module.css";
 
 const storagePrefix = "airaptovideo:24k-magic:task:v1";
+const templateVersion = 4;
 const loginUrl = "/login?returnTo=%2Feffects%2F24k-magic%23cruise-create";
 const photoSlots = ["photo", "partnerPhoto"] as const;
 type Slot = typeof photoSlots[number];
@@ -18,6 +19,7 @@ type Config = {
 };
 type Job = {
   id: string;
+  templateVersion?: number;
   status: "submitting" | "processing" | "succeeded" | "failed" | "canceled" | "refunded" | "expired" | "submission_unknown";
   providerTaskId?: string;
   canRetry?: boolean;
@@ -33,7 +35,7 @@ type Job = {
 };
 type SavedTask = { version: 1; requestId: string; jobId?: string; retryId?: string };
 type GenerationBody = {
-  templateId: "24k-magic"; requestId: string;
+  templateId: "24k-magic"; templateVersion: typeof templateVersion; requestId: string;
   photoId?: string; photoUrl?: string;
   partnerPhotoId?: string; partnerPhotoUrl?: string;
   resolution: string;
@@ -106,8 +108,9 @@ export default function CruiseGenerator() {
   const savedRef = useRef<SavedTask | null>(null);
   const storageKey = useRef<string | null>(null);
   const photoInputs = useRef<Partial<Record<Slot, HTMLInputElement | null>>>({});
-  const templateReady = (config?.template.version ?? 0) >= 3;
-  const templatePaused = config?.capabilities.templatePaused === true || job?.templatePaused === true;
+  const templateReady = config?.template.version === templateVersion;
+  const earlierJob = job?.templateVersion != null && job.templateVersion < templateVersion;
+  const templatePaused = config?.capabilities.templatePaused === true || job?.templateVersion === templateVersion && job.templatePaused === true;
   const generationEnabled = templateReady && config?.capabilities.generationEnabled === true && !templatePaused;
   const canRetry = job?.canRetry === true && templateReady && (generationEnabled || templatePaused);
   const active = starting || !!savedTask?.retryId || !!job && !terminal(job.status) || !!savedTask && !job;
@@ -240,11 +243,12 @@ export default function CruiseGenerator() {
     if (editingDisabled || !generationEnabled) return;
     setError("");
     const previousTask = savedRef.current;
+    const previousJob = job;
     let body: GenerationBody;
     try {
       if (!consent) throw new Error("Confirm that you have permission to use both photos.");
       body = {
-        templateId: "24k-magic", requestId: crypto.randomUUID(),
+        templateId: "24k-magic", templateVersion, requestId: crypto.randomUUID(),
         ...photoFields("photo"), ...photoFields("partnerPhoto"), resolution,
       };
       rememberTask({ version: 1, requestId: body.requestId });
@@ -259,20 +263,21 @@ export default function CruiseGenerator() {
       const result = await request<{ job: Job }>("/api/template-generations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       acceptJob(result.job);
     } catch (caught) {
-      if (caught instanceof RequestError && caught.code === "TEMPLATE_PAUSED") {
+      const templateChanged = caught instanceof RequestError && (caught.code === "TEMPLATE_PAUSED" || caught.code === "TEMPLATE_UPDATED");
+      if (caught instanceof RequestError && (templateChanged || [400, 401, 403, 404, 410, 413, 415, 422, 429].includes(caught.status || 0))) {
+        setError(caught.message);
+        if (caught.status === 401) setLoginRequired(true);
+        setJob(previousJob);
         submittedBody.current = null;
         try {
           if (previousTask) rememberTask(previousTask);
-          else if (storageKey.current) localStorage.removeItem(storageKey.current);
+          else {
+            savedRef.current = null;
+            setSavedTask(null);
+            if (storageKey.current) localStorage.removeItem(storageKey.current);
+          }
         } catch { setError("The browser could not update its task recovery record."); }
-        setConfigVersion((value) => value + 1);
-      } else if (caught instanceof RequestError && [400, 401, 403, 404, 413, 415, 422, 429].includes(caught.status || 0)) {
-        setError(caught.message);
-        if (caught.status === 401) setLoginRequired(true);
-        try { if (storageKey.current) localStorage.removeItem(storageKey.current); } catch { /* No task was accepted. */ }
-        savedRef.current = null;
-        setSavedTask(null);
-        submittedBody.current = null;
+        if (templateChanged) setConfigVersion((value) => value + 1);
       } else { setTaskError(`The submission response was not confirmed. ${(caught as Error).message}`); setPaused(true); }
     } finally { setStarting(false); }
   }
@@ -304,7 +309,7 @@ export default function CruiseGenerator() {
     } catch (caught) {
       setTaskError((caught as Error).message);
       setPaused(true);
-      if (caught instanceof RequestError && caught.code === "TEMPLATE_PAUSED") setConfigVersion((value) => value + 1);
+      if (caught instanceof RequestError && (caught.code === "TEMPLATE_PAUSED" || caught.code === "TEMPLATE_UPDATED")) setConfigVersion((value) => value + 1);
     }
     finally { setStarting(false); }
   }
@@ -364,7 +369,7 @@ export default function CruiseGenerator() {
               const locked = inputsLocked || uploading[slot];
               return (
                 <div key={slot}>
-                  <div className={ui.fieldHeading}><label htmlFor={`cruise-${slot}${sources[slot] === "url" ? "-url" : ""}`}>{isDancer ? "01 / DECK DANCER" : "02 / BLANKET PARTNER"}</label><span>Required</span></div>
+                  <div className={ui.fieldHeading}><label htmlFor={`cruise-${slot}${sources[slot] === "url" ? "-url" : ""}`}>{isDancer ? "01 / DECK DANCER" : "02 / DOORWAY PARTNER"}</label><span>Required</span></div>
                   {sourceSelector(slot)}
                   {sources[slot] === "upload" ? <>
                     <input ref={(node) => { photoInputs.current[slot] = node; }} id={`cruise-${slot}`} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={locked || !config} onChange={(event) => { void upload(event.target.files?.[0], slot); event.target.value = ""; }} />
@@ -387,12 +392,12 @@ export default function CruiseGenerator() {
           {config && !config.capabilities.uploadsPublic && <p className={ui.mediaWarning}>To generate with your photos here, choose HTTPS URL and use a direct image link for each person.</p>}
           <div className={ui.settings}>
             <fieldset disabled={editingDisabled}><legend>Resolution</legend><div className={ui.segments}>{["480p", "720p"].map((value) => <button key={value} type="button" aria-pressed={resolution === value} onClick={() => setResolution(value)}>{value}</button>)}</div></fieldset>
-            <div className={ui.fixedSetting}><span>Video</span><strong>About 27 seconds · 4:3</strong></div>
+            <div className={ui.fixedSetting}><span>Video</span><strong>About 20 seconds · 16:9</strong></div>
           </div>
           <label className={ui.consent}><input type="checkbox" checked={consent} disabled={editingDisabled} onChange={(event) => setConsent(event.target.checked)} /><span>Both people have agreed to use their photos in this video.</span></label>
           {error && <p className={ui.error} role="alert">{error}</p>}
           {loginRequired && config && <p className={ui.error}><Link href={loginUrl}>Sign in again to continue.</Link></p>}
-          <button className={ui.generate} type="submit" disabled={editingDisabled || !generationEnabled || loginRequired || !consent}><Sparkles size={17} aria-hidden="true" />{templatePaused ? "New videos paused" : starting ? "Submitting your generation…" : active ? "A generation is awaiting its result" : job && terminal(job.status) ? "Generate again · uses SeeAPI credits" : "Generate video · uses SeeAPI credits"}<ArrowUpRight size={16} aria-hidden="true" /></button>
+          <button className={ui.generate} type="submit" disabled={editingDisabled || !generationEnabled || loginRequired || !consent}><Sparkles size={17} aria-hidden="true" />{templatePaused ? "New videos paused" : starting ? "Submitting your generation…" : active ? "A generation is awaiting its result" : job && terminal(job.status) && !earlierJob ? "Generate again · uses SeeAPI credits" : "Generate video · uses SeeAPI credits"}<ArrowUpRight size={16} aria-hidden="true" /></button>
           {!templatePaused && <p className={ui.costNote}>This starts a real SeeAPI generation. Editing and previewing inputs do not start a task.</p>}
         </form>
         <aside className={ui.output} aria-labelledby="cruise-result-heading">
@@ -400,6 +405,7 @@ export default function CruiseGenerator() {
           {job || savedTask ? <div className={ui.taskResult}>
             <div className={`${ui.status} ${job?.status === "succeeded" ? ui.success : ""}`} role="status">{job?.status === "succeeded" ? <Check size={16} aria-hidden="true" /> : job && !terminal(job.status) && !paused && job.status !== "submission_unknown" || starting ? <Loader2 size={16} className={ui.spin} aria-hidden="true" /> : <Film size={16} aria-hidden="true" />}<strong>{job ? statusLabels[job.status] : starting ? "Submitting to SeeAPI" : checking ? "Recovering your saved task" : "Submission needs checking"}</strong></div>
             {job?.status === "succeeded" && job.videoUrl ? <><video className={ui.resultVideo} src={job.videoUrl} controls playsInline preload="metadata" onError={() => setTaskError("The result video could not be played here. Open the original result or check the task again.")} /><div className={ui.resultActions}><a href={job.videoUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={13} aria-hidden="true" /> Open result</a><a href={videoDownloadUrl(job.videoUrl)} download="24k-magic-cruise-dance.mp4"><ArrowDownToLine size={13} aria-hidden="true" /> Download video</a></div></> : <div className={ui.taskPlaceholder}><Film size={35} strokeWidth={1.2} aria-hidden="true" /><p>{job?.status === "succeeded" ? "SeeAPI marked this task complete but has not returned a video URL." : job && terminal(job.status) ? "No playable result was returned for this task." : job?.status === "submission_unknown" || !job && !starting ? "Check or recover this task before starting another generation. A lost response does not mean the task failed." : "Your video is being prepared. This page checks its status every 10 seconds."}</p></div>}
+            {earlierJob && <p className={ui.resultHint}>This task used an earlier version of the template.</p>}
             {job?.error && <p className={ui.error}>{job.error}</p>}
             {taskError && <p className={ui.error} role="alert">{taskError}</p>}
             {paused && <p className={ui.resultHint}>Automatic status checking is paused. Your existing task has not been marked failed.</p>}

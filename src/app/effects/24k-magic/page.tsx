@@ -8,7 +8,7 @@ import ui from "./page.module.css";
 
 const title = "24K Magic Cruise Dance — Put yourself on deck";
 const description =
-  "Make a 24K Magic cruise dance video with two photos. Cast your dancer and their blanket-wrapped partner, choose a resolution, and download the finished dance.";
+  "Make a 24K Magic cruise dance video with two photos. Cast the dancer on deck and the partner in the doorway, choose 480p or 720p, and download your video.";
 
 export const metadata: Metadata = {
   title,
@@ -30,17 +30,17 @@ const faqs = [
   {
     question: "What do I need to get started?",
     answer:
-      "Choose a clear, single-person photo for each role. Photo 1 plays the dancer in the yellow coverall. Photo 2 plays the partner in the shirt and tie who later peeks out from under the blanket.",
+      "Choose a clear photo of each person. The person in the first photo dances on deck. The person in the second photo watches from the doorway.",
   },
   {
     question: "What happens in the video?",
     answer:
-      "The dancer steps across the ship’s deck and drops into a split. Their partner watches from the doorway and peeks out from a white blanket in the final shot.",
+      "The dancer steps and kicks across the deck. Their partner leans out of the doorway, glances at the red fire hose cabinet, then raises both hands in the final close-up.",
   },
   {
     question: "How long is the finished video?",
     answer:
-      "The dance runs about 27 seconds in a 4:3 landscape frame. You can choose 480p or 720p before starting.",
+      "The dance runs about 20 seconds in a 16:9 widescreen frame and includes sound. You can choose 480p or 720p before starting.",
   },
   {
     question: "Is this a free preview?",
@@ -60,11 +60,11 @@ export default function CruiseDancePage() {
           <p className={ui.eyebrow}><span /> 24K MAGIC · CRUISE DECK DANCE</p>
           <h1 id="cruise-title">Make your own<br /><span>24K Magic Cruise Dance.</span></h1>
           <p className={ui.intro}>
-            Cast the 24K Magic cruise dance with two photos. Choose who dances on deck and who peeks out from under the blanket.
+            Cast the 24K Magic cruise dance with two photos. Choose who dances on deck and who watches from the doorway.
           </p>
           <div className={ui.facts}>
             <span><Camera size={15} aria-hidden="true" /> Two photos</span>
-            <span><Clock3 size={15} aria-hidden="true" /> About 27 seconds</span>
+            <span><Clock3 size={15} aria-hidden="true" /> About 20 seconds</span>
             <span><AudioLines size={15} aria-hidden="true" /> Sound included</span>
           </div>
         </div>
@@ -80,7 +80,7 @@ export default function CruiseDancePage() {
       <CruiseGenerator />
 
       <section className={ui.tips} aria-label="Photo and video tips">
-        <article><span>01 / YOUR PHOTOS</span><h2>Choose a face for each role.</h2><p>Pick a well-lit portrait of the dancer and a separate portrait of the blanket partner. Keep one face clearly visible in each.</p></article>
+        <article><span>01 / YOUR PHOTOS</span><h2>Choose a face for each role.</h2><p>Pick a well-lit portrait of the dancer and a separate portrait of the doorway partner. Keep one face clearly visible in each.</p></article>
         <article><span>02 / VIDEO QUALITY</span><h2>Choose a resolution.</h2><p>Use 480p for a smaller video or 720p for more detail on faces and footwork.</p></article>
         <article><span>03 / YOUR RESULT</span><h2>Download your dance.</h2><p>When the video is ready, play it here and download the MP4.</p></article>
       </section>
