@@ -10,6 +10,7 @@
 .layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); }
 .form { padding: 27px; min-width: 0; }
 .inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.referenceField { grid-column: 1 / -1; }
 .fieldHeading { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 9px; letter-spacing: 1px; font-weight: 600; margin-bottom: 11px; }
 .fieldHeading > span:last-child { color: var(--muted); font-size: 9px; letter-spacing: 0; font-weight: 400; }
 .sourceTabs { display: flex; gap: 3px; padding: 3px; border: 1px solid #38323b; border-radius: 7px; margin-bottom: 10px; background: #121115; }
@@ -138,4 +139,8 @@
   .fixedSetting > span { margin-bottom: 0; }
   .fixedSetting > strong { min-height: 20px; }
   .generate { font-size: 11px; }
+}
+
+@media (max-width: 420px) {
+  .inputs { grid-template-columns: minmax(0, 1fr); }
 }

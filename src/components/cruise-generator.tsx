@@ -7,12 +7,16 @@ import ui from "./cruise-generator.module.css";
 
 const storagePrefix = "airaptovideo:24k-magic:task:v1";
 const loginUrl = "/login?returnTo=%2Feffects%2F24k-magic%23cruise-create";
-const defaultPrompt = "Create a cinematic, energetic cruise-deck dance video featuring the person in the reference photo. Preserve their facial identity and recognizable appearance. Follow the dance movement and lively rhythm of the reference video, with natural full-body motion, consistent anatomy, and confident performance. Place the subject on an open cruise ship deck with ocean views and warm golden-hour lighting. Keep the person clearly framed throughout the clip. Generate fitting rhythmic audio. No added text, captions, or logos.";
+const defaultPrompt = "Cast Image 1 as the dancer in the yellow coverall and blue gloves. Cast Image 2 as the partner in the pale yellow shirt and black tie who later peers out from under the white blanket. Use Video 1 for their movements, wardrobe, framing and timing. Keep each face and hairstyle matched to its own photo across cuts, including when both people share the frame.";
 type Kind = "photo" | "video" | "audio";
+type Slot = Kind | "partnerPhoto";
+const photoSlots = ["photo", "partnerPhoto"] as const;
+const slotLabels: Record<Slot, string> = { photo: "dancer photo", partnerPhoto: "partner photo", video: "reference video", audio: "audio reference" };
+const requestFields: Record<Slot, string> = { photo: "photo", partnerPhoto: "partnerPhoto", video: "referenceVideo", audio: "referenceAudio" };
 type Asset = { id: string; kind: Kind; url: string; externalReady?: boolean; warning?: string };
 type Config = {
   userId: string;
-  template: { id: string; name: string; prompt: string; model: string; duration: number; resolution: string; aspectRatio: string; generateAudio: boolean; referenceVideoUrl: string | null };
+  template: { id: string; version: number; name: string; prompt: string; model: string; duration: number; resolution: string; aspectRatio: string; generateAudio: boolean; referenceVideoUrl: string | null };
   capabilities: { generationEnabled: boolean; uploadsPublic: boolean; reason?: string };
 };
 type Job = {
@@ -31,6 +35,7 @@ type SavedTask = { version: 1; requestId: string; jobId?: string };
 type GenerationBody = {
   templateId: "24k-magic"; requestId: string;
   photoId?: string; photoUrl?: string;
+  partnerPhotoId?: string; partnerPhotoUrl?: string;
   referenceVideoId?: string; referenceVideoUrl?: string;
   referenceAudioId?: string; referenceAudioUrl?: string;
   prompt: string; duration: number; resolution: string; aspectRatio: string; generateAudio: boolean;
@@ -114,12 +119,12 @@ export default function CruiseGenerator() {
   const [configError, setConfigError] = useState("");
   const [loginRequired, setLoginRequired] = useState(false);
   const [configVersion, setConfigVersion] = useState(0);
-  const [sources, setSources] = useState<Record<Kind, "upload" | "url">>({ photo: "upload", video: "upload", audio: "url" });
-  const [assets, setAssets] = useState<Partial<Record<Kind, Asset>>>({});
-  const [urls, setUrls] = useState<Record<Kind, string>>({ photo: "", video: "", audio: "" });
-  const [previews, setPreviews] = useState<Record<Kind, string>>({ photo: "", video: "", audio: "" });
-  const [names, setNames] = useState<Partial<Record<Kind, string>>>({});
-  const [uploading, setUploading] = useState<Kind | null>(null);
+  const [sources, setSources] = useState<Record<Slot, "upload" | "url">>({ photo: "upload", partnerPhoto: "upload", video: "upload", audio: "url" });
+  const [assets, setAssets] = useState<Partial<Record<Slot, Asset>>>({});
+  const [urls, setUrls] = useState<Record<Slot, string>>({ photo: "", partnerPhoto: "", video: "", audio: "" });
+  const [previews, setPreviews] = useState<Record<Slot, string>>({ photo: "", partnerPhoto: "", video: "", audio: "" });
+  const [names, setNames] = useState<Partial<Record<Slot, string>>>({});
+  const [uploading, setUploading] = useState<Partial<Record<Slot, boolean>>>({});
   const [prompt, setPrompt] = useState(defaultPrompt);
   const [duration, setDuration] = useState(10);
   const [resolution, setResolution] = useState("720p");
@@ -137,12 +142,13 @@ export default function CruiseGenerator() {
   const submittedBody = useRef<GenerationBody | null>(null);
   const savedRef = useRef<SavedTask | null>(null);
   const storageKey = useRef<string | null>(null);
-  const photoInput = useRef<HTMLInputElement>(null);
+  const photoInputs = useRef<Partial<Record<typeof photoSlots[number], HTMLInputElement | null>>>({});
   const videoInput = useRef<HTMLInputElement>(null);
   const audioInput = useRef<HTMLInputElement>(null);
+  const supportsTwoPhotos = (config?.template.version ?? 0) >= 2;
+  const generationEnabled = supportsTwoPhotos && config?.capabilities.generationEnabled === true;
   const active = starting || !!job && !terminal(job.status) || !!savedTask && !job;
-  const editingDisabled = active || uploading !== null;
-  const photoPreview = sources.photo === "upload" ? assets.photo?.url : previews.photo;
+  const editingDisabled = active || Object.values(uploading).some(Boolean);
   const videoPreview = sources.video === "upload" ? assets.video?.url : previews.video;
   const audioPreview = sources.audio === "upload" ? assets.audio?.url : previews.audio;
 
@@ -185,7 +191,7 @@ export default function CruiseGenerator() {
       const stored = readSavedTask(storageKey.current);
       savedRef.current = stored;
       setSavedTask(stored);
-      if (!promptEdited.current) setPrompt(value.template.prompt);
+      if (!promptEdited.current) setPrompt(value.template.version >= 2 ? value.template.prompt : defaultPrompt);
       if (value.template.referenceVideoUrl) {
         setSources((previous) => ({ ...previous, video: "url" }));
         setUrls((previous) => ({ ...previous, video: value.template.referenceVideoUrl! }));
@@ -228,63 +234,64 @@ export default function CruiseGenerator() {
     return () => { mounted = false; clearTimeout(timer); controller.abort(); };
   }, [job, paused, starting]);
 
-  async function upload(file: File | undefined, kind: Kind) {
-    if (!file || editingDisabled) return;
+  async function upload(file: File | undefined, slot: Slot) {
+    if (!file || active || uploading[slot]) return;
+    const kind = slot === "partnerPhoto" ? "photo" : slot;
     setError("");
     if (kind === "photo" && !/^image\/(jpeg|png|webp)$/.test(file.type)) { setError("Choose a JPG, PNG, or WebP photo."); return; }
     if (kind === "video" && !/\.(mp4|mov)$/i.test(file.name)) { setError("Choose an MP4 or MOV reference clip."); return; }
-    setUploading(kind);
+    setUploading((previous) => ({ ...previous, [slot]: true }));
     try {
       if (kind !== "photo") await checkReferenceFile(file, kind);
       const body = new FormData();
       body.append("file", file);
       body.append("kind", kind);
       const result = await request<{ asset: Asset; externalReady?: boolean; warning?: string }>("/api/template-media", { method: "POST", body });
-      setAssets((previous) => ({ ...previous, [kind]: { ...result.asset, externalReady: result.externalReady ?? result.asset.externalReady, warning: result.warning ?? result.asset.warning } }));
-      setNames((previous) => ({ ...previous, [kind]: file.name }));
-      setSources((previous) => ({ ...previous, [kind]: "upload" }));
+      setAssets((previous) => ({ ...previous, [slot]: { ...result.asset, externalReady: result.externalReady ?? result.asset.externalReady, warning: result.warning ?? result.asset.warning } }));
+      setNames((previous) => ({ ...previous, [slot]: file.name }));
+      setSources((previous) => ({ ...previous, [slot]: "upload" }));
     } catch (caught) {
       if (caught instanceof RequestError && caught.status === 401) setLoginRequired(true);
-      setError((caught as Error).message);
-    } finally { setUploading(null); }
+      setError(`${slotLabels[slot]}: ${(caught as Error).message}`);
+    } finally { setUploading((previous) => ({ ...previous, [slot]: false })); }
   }
 
-  function preview(kind: Kind) {
-    try { const url = httpsUrl(urls[kind], `${kind} URL`); setPreviews((previous) => ({ ...previous, [kind]: url })); setError(""); }
+  function preview(slot: Slot) {
+    try { const url = httpsUrl(urls[slot], `${slotLabels[slot]} URL`); setPreviews((previous) => ({ ...previous, [slot]: url })); setError(""); }
     catch (caught) { setError((caught as Error).message); }
   }
 
-  function changeUrl(kind: Kind, value: string) {
-    setUrls((previous) => ({ ...previous, [kind]: value }));
-    setPreviews((previous) => ({ ...previous, [kind]: "" }));
+  function changeUrl(slot: Slot, value: string) {
+    setUrls((previous) => ({ ...previous, [slot]: value }));
+    setPreviews((previous) => ({ ...previous, [slot]: "" }));
   }
 
-  function removeAsset(kind: Kind) {
-    setAssets((previous) => ({ ...previous, [kind]: undefined }));
-    setNames((previous) => ({ ...previous, [kind]: undefined }));
+  function removeAsset(slot: Slot) {
+    setAssets((previous) => ({ ...previous, [slot]: undefined }));
+    setNames((previous) => ({ ...previous, [slot]: undefined }));
   }
 
-  function mediaFields(kind: Kind, required: boolean): Record<string, string> {
-    const field = kind === "photo" ? "photo" : kind === "video" ? "referenceVideo" : "referenceAudio";
-    if (sources[kind] === "url") {
-      if (!urls[kind].trim() && !required) return {};
-      return { [`${field}Url`]: httpsUrl(urls[kind], `${kind} URL`) };
+  function mediaFields(slot: Slot, required: boolean): Record<string, string> {
+    const field = requestFields[slot];
+    if (sources[slot] === "url") {
+      if (!urls[slot].trim() && !required) return {};
+      return { [`${field}Url`]: httpsUrl(urls[slot], `${slotLabels[slot]} URL`) };
     }
-    const asset = assets[kind];
-    if (!asset) { if (required) throw new Error(`Add your ${kind === "photo" ? "photo" : "reference video"} before starting.`); return {}; }
-    if (!(asset.externalReady ?? config?.capabilities.uploadsPublic)) throw new Error(`The uploaded ${kind} is not accessible to SeeAPI yet. Use a public HTTPS media URL in the debug settings.`);
+    const asset = assets[slot];
+    if (!asset) { if (required) throw new Error(`Add your ${slotLabels[slot]} before starting.`); return {}; }
+    if (!(asset.externalReady ?? config?.capabilities.uploadsPublic)) throw new Error(`The uploaded ${slotLabels[slot]} is not accessible to SeeAPI yet. Use a public HTTPS media URL in the debug settings.`);
     return { [`${field}Id`]: asset.id };
   }
 
   async function generate(event: React.FormEvent) {
     event.preventDefault();
-    if (editingDisabled || !config?.capabilities.generationEnabled) return;
+    if (editingDisabled || !generationEnabled) return;
     setError("");
     let body: GenerationBody;
     try {
-      if (!consent) throw new Error("Confirm that you have permission to use the photo and reference material.");
+      if (!consent) throw new Error("Confirm that you have permission to use both photos and the reference material.");
       if (!prompt.trim()) throw new Error("Add a generation prompt.");
-      body = { templateId: "24k-magic", requestId: crypto.randomUUID(), ...mediaFields("photo", true), ...mediaFields("video", true), ...mediaFields("audio", false), prompt: prompt.trim(), duration, resolution, aspectRatio, generateAudio: true };
+      body = { templateId: "24k-magic", requestId: crypto.randomUUID(), ...mediaFields("photo", true), ...mediaFields("partnerPhoto", true), ...mediaFields("video", true), ...mediaFields("audio", false), prompt: prompt.trim(), duration, resolution, aspectRatio, generateAudio: true };
       rememberTask({ version: 1, requestId: body.requestId });
     } catch (caught) { setError((caught as Error).message || "Browser storage is needed to recover this task safely."); return; }
     submittedBody.current = body;
@@ -326,7 +333,7 @@ export default function CruiseGenerator() {
 
   async function retrySubmission() {
     const body = submittedBody.current;
-    if (!body || starting || checking || job) return;
+    if (!body || starting || checking || job || !supportsTwoPhotos) return;
     setStarting(true);
     setTaskError("");
     try {
@@ -349,37 +356,53 @@ export default function CruiseGenerator() {
     setPaused(false);
   }
 
-  function sourceSelector(kind: Kind) {
-    return <div className={ui.sourceTabs} aria-label={`${kind} source`}>{(["upload", "url"] as const).map((source) => <button key={source} type="button" disabled={editingDisabled} aria-pressed={sources[kind] === source} onClick={() => setSources((previous) => ({ ...previous, [kind]: source }))}>{source === "upload" ? "Upload file" : "HTTPS URL"}</button>)}</div>;
+  function sourceSelector(slot: Slot) {
+    return <div className={ui.sourceTabs} role="group" aria-label={`${slotLabels[slot]} source`}>{(["upload", "url"] as const).map((source) => <button key={source} type="button" disabled={active || uploading[slot]} aria-pressed={sources[slot] === source} onClick={() => setSources((previous) => ({ ...previous, [slot]: source }))}>{source === "upload" ? "Upload file" : "HTTPS URL"}</button>)}</div>;
   }
 
-  function urlField(kind: Kind, placeholder: string) {
-    return <div className={ui.urlRow}><input id={`cruise-${kind}-url`} type="url" aria-label={`${kind} direct HTTPS URL`} value={urls[kind]} onChange={(event) => changeUrl(kind, event.target.value)} placeholder={placeholder} spellCheck={false} disabled={editingDisabled} /><button type="button" disabled={editingDisabled || !urls[kind].trim()} onClick={() => preview(kind)}>Preview</button></div>;
+  function urlField(slot: Slot, placeholder: string) {
+    return <div className={ui.urlRow}><input id={`cruise-${slot}-url`} type="url" aria-label={`${slotLabels[slot]} direct HTTPS URL`} value={urls[slot]} onChange={(event) => changeUrl(slot, event.target.value)} placeholder={placeholder} spellCheck={false} disabled={active || uploading[slot]} /><button type="button" disabled={active || uploading[slot] || !urls[slot].trim()} onClick={() => preview(slot)}>Preview</button></div>;
   }
 
   return (
     <section className={ui.lab} id="cruise-create" aria-labelledby="cruise-lab-heading">
       <div className={ui.header}><div><p className={ui.eyebrow}>YOUR CREATIVE SPACE</p><h2 id="cruise-lab-heading">Make the deck yours.</h2></div><span className={ui.badge}><span /> EXPERIMENTAL</span></div>
       {!config && <div className={ui.configNotice} role="status">{loginRequired ? <><span>Sign in to access this generation lab.</span><Link href={loginUrl}>Sign in <ArrowUpRight size={13} aria-hidden="true" /></Link></> : configError ? <><span>{configError}</span><button type="button" onClick={() => setConfigVersion((value) => value + 1)}>Retry connection</button></> : <span><Loader2 size={13} className={ui.spin} aria-hidden="true" /> Checking generation access…</span>}</div>}
-      {config && !config.capabilities.generationEnabled && <div className={ui.configNotice} role="status"><span>{config.capabilities.reason || "Generation is not available in this environment yet."}</span><button type="button" onClick={() => setConfigVersion((value) => value + 1)}>Check again</button></div>}
+      {config && !generationEnabled && <div className={ui.configNotice} role="status"><span>{supportsTwoPhotos ? config.capabilities.reason || "Generation is not available in this environment yet." : "The two-photo template is being updated. Check again before starting a generation."}</span><button type="button" onClick={() => setConfigVersion((value) => value + 1)}>Check again</button></div>}
       <div className={ui.layout}>
         <form className={ui.form} onSubmit={generate}>
           <div className={ui.inputs}>
-            <div>
-              <div className={ui.fieldHeading}><label htmlFor="cruise-photo">01 / YOUR PHOTO</label><span>One person</span></div>
-              {sourceSelector("photo")}
-              <input ref={photoInput} id="cruise-photo" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={editingDisabled || !config} onChange={(event) => { void upload(event.target.files?.[0], "photo"); event.target.value = ""; }} />
-              {sources.photo === "upload" ? <button className={`${ui.photo} ${photoPreview ? ui.hasPhoto : ""}`} type="button" disabled={editingDisabled || !config} onClick={() => photoInput.current?.click()} aria-label={photoPreview ? "Change your photo" : "Choose your photo"}>
-                {photoPreview ? <><img src={photoPreview} alt="Your selected photo for the cruise dance" /><span className={ui.replace}><Upload size={14} aria-hidden="true" /> Change photo</span></> : <><span className={ui.uploadIcon}>{uploading === "photo" ? <Loader2 size={25} className={ui.spin} aria-hidden="true" /> : <ImagePlus size={25} strokeWidth={1.4} aria-hidden="true" />}</span><strong>{uploading === "photo" ? "Uploading your photo…" : "Put yourself in the scene."}</strong><span>Choose a photo</span><small>JPG, PNG or WebP</small></>}
-              </button> : <><div className={`${ui.photo} ${photoPreview ? ui.hasPhoto : ""}`}>{photoPreview ? <img src={photoPreview} alt="Your photo from the supplied URL" onError={() => setError("The photo URL could not be previewed. SeeAPI access to this URL has not been verified.")} /> : <><ImagePlus size={27} aria-hidden="true" /><strong>Preview your photo.</strong><small>Enter its direct URL below.</small></>}</div>{urlField("photo", "https://…/photo.jpg")}</>}
-              <div className={ui.inputNote}>{sources.photo === "upload" && assets.photo ? <><span className={ui.filename}>{names.photo}</span><button type="button" disabled={editingDisabled} onClick={() => removeAsset("photo")} aria-label="Remove selected photo"><X size={13} /></button></> : <span>A clear, full-body photo works best.</span>}</div>
-              <p className={ui.mediaSpecs}>At least 301 × 301 px · width/height ratio 0.4–2.5</p>
-            </div>
-            <div>
-              <div className={ui.fieldHeading}><label htmlFor="cruise-video">02 / DANCE REFERENCE</label><span>Actual source clip</span></div>
+            {photoSlots.map((slot) => {
+              const isDancer = slot === "photo";
+              const label = slotLabels[slot];
+              const previewUrl = sources[slot] === "upload" ? assets[slot]?.url : previews[slot];
+              const locked = active || uploading[slot];
+              return (
+                <div key={slot}>
+                  <div className={ui.fieldHeading}><label htmlFor={`cruise-${slot}${sources[slot] === "url" ? "-url" : ""}`}>{isDancer ? "01 / DECK DANCER" : "02 / BLANKET PARTNER"}</label><span>Required</span></div>
+                  {sourceSelector(slot)}
+                  {sources[slot] === "upload" ? <>
+                    <input ref={(node) => { photoInputs.current[slot] = node; }} id={`cruise-${slot}`} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={locked || !config} onChange={(event) => { void upload(event.target.files?.[0], slot); event.target.value = ""; }} />
+                    <button className={`${ui.photo} ${previewUrl ? ui.hasPhoto : ""}`} type="button" disabled={locked || !config} onClick={() => photoInputs.current[slot]?.click()} aria-label={`${previewUrl ? "Change" : "Choose"} ${label}`}>
+                      {previewUrl ? <><img src={previewUrl} alt={`Selected ${label}`} /><span className={ui.replace}><Upload size={14} aria-hidden="true" />{uploading[slot] ? "Uploading…" : "Change photo"}</span></> : <>
+                        <span className={ui.uploadIcon}>{uploading[slot] ? <Loader2 size={25} className={ui.spin} aria-hidden="true" /> : <ImagePlus size={25} strokeWidth={1.4} aria-hidden="true" />}</span>
+                        <strong>{uploading[slot] ? "Uploading…" : `Choose ${label}`}</strong><small>JPG, PNG or WebP</small>
+                      </>}
+                    </button>
+                  </> : <>
+                    <div className={`${ui.photo} ${previewUrl ? ui.hasPhoto : ""}`}>{previewUrl ? <img src={previewUrl} alt={`Selected ${label}`} onError={() => setError(`The ${label} URL could not be previewed.`)} /> : <><ImagePlus size={27} aria-hidden="true" /><strong>Preview {label}</strong><small>Enter its direct URL below.</small></>}</div>
+                    {urlField(slot, isDancer ? "https://…/dancer.jpg" : "https://…/partner.jpg")}
+                  </>}
+                  <div className={ui.inputNote}>{sources[slot] === "upload" && assets[slot] ? <><span className={ui.filename}>{names[slot]}</span><button type="button" disabled={locked} onClick={() => removeAsset(slot)} aria-label={`Remove ${label}`}><X size={13} /></button></> : <span>Use a clear photo of one face.</span>}</div>
+                  <p className={ui.mediaSpecs}>At least 301 × 301 px · width/height ratio 0.4–2.5</p>
+                </div>
+              );
+            })}
+            <div className={ui.referenceField}>
+              <div className={ui.fieldHeading}><label htmlFor="cruise-video">03 / DANCE REFERENCE</label><span>Actual source clip</span></div>
               {sourceSelector("video")}
               <input ref={videoInput} id="cruise-video" className="sr-only" type="file" accept="video/mp4,video/quicktime,.mp4,.mov" disabled={editingDisabled || !config} onChange={(event) => { void upload(event.target.files?.[0], "video"); event.target.value = ""; }} />
-              <div className={ui.reference}>{videoPreview ? <video key={videoPreview} src={videoPreview} controls playsInline preload="metadata" onError={() => setError("The reference video could not be played here. A browser preview does not verify that SeeAPI can read a media URL.")} /> : <div className={ui.referenceEmpty}>{uploading === "video" ? <Loader2 size={27} className={ui.spin} aria-hidden="true" /> : <Film size={27} strokeWidth={1.3} aria-hidden="true" />}<strong>{uploading === "video" ? "Checking and uploading…" : "Your motion reference."}</strong><span>{sources.video === "upload" ? "Add the cruise-deck dance clip." : "Enter a direct video URL below."}</span>{sources.video === "upload" && <button className={ui.smallButton} type="button" disabled={editingDisabled || !config} onClick={() => videoInput.current?.click()}>Choose reference clip</button>}</div>}</div>
+              <div className={ui.reference}>{videoPreview ? <video key={videoPreview} src={videoPreview} controls playsInline preload="metadata" onError={() => setError("The reference video could not be played here. A browser preview does not verify that SeeAPI can read a media URL.")} /> : <div className={ui.referenceEmpty}>{uploading.video ? <Loader2 size={27} className={ui.spin} aria-hidden="true" /> : <Film size={27} strokeWidth={1.3} aria-hidden="true" />}<strong>{uploading.video ? "Checking and uploading…" : "Your motion reference."}</strong><span>{sources.video === "upload" ? "Add the cruise-deck dance clip." : "Enter a direct video URL below."}</span>{sources.video === "upload" && <button className={ui.smallButton} type="button" disabled={editingDisabled || !config} onClick={() => videoInput.current?.click()}>Choose reference clip</button>}</div>}</div>
               {sources.video === "url" ? urlField("video", "https://…/reference.mp4") : videoPreview && <div className={ui.mediaActions}><button type="button" disabled={editingDisabled} onClick={() => videoInput.current?.click()}>Change clip</button><button type="button" disabled={editingDisabled} onClick={() => removeAsset("video")}>Remove</button></div>}
               <p className={ui.inputNote}>MP4 / MOV · 2–15s</p>
               <p className={ui.mediaSpecs}>Shorter side: 480 or 720 px. Check SeeAPI’s frame-rate requirements.</p>
@@ -397,22 +420,22 @@ export default function CruiseGenerator() {
             <summary><span><SlidersHorizontal size={14} aria-hidden="true" /> Debug settings / 调试参数</span><ChevronDown size={14} aria-hidden="true" /></summary>
             <div className={ui.debugBody}>
               <p className={ui.modelNote}>Model: {config?.template.model || "seedance-2"} · generate_audio = true</p>
-              <div className={ui.promptHeading}><label htmlFor="cruise-prompt">Generation prompt</label><button type="button" disabled={editingDisabled} onClick={() => { promptEdited.current = false; setPrompt(config?.template.prompt || defaultPrompt); }}>Reset prompt</button></div>
+              <div className={ui.promptHeading}><label htmlFor="cruise-prompt">Generation prompt</label><button type="button" disabled={editingDisabled} onClick={() => { promptEdited.current = false; setPrompt(supportsTwoPhotos && config ? config.template.prompt : defaultPrompt); }}>Reset prompt</button></div>
               <textarea id="cruise-prompt" value={prompt} onChange={(event) => { promptEdited.current = true; setPrompt(event.target.value); }} rows={7} maxLength={4000} disabled={editingDisabled} />
               <p>可修改场景、人物和动作描述。参考素材必须是视频/图片直链，不能使用 TikTok 等网页链接。</p>
               <p>文件上传前会检查音视频时长及视频尺寸；浏览器无法可靠检查帧率。URL 预览不代表供应商一定能读取或素材规格已通过验证。</p>
               <div className={ui.audioHeading}><label htmlFor="cruise-audio">Optional audio reference / 声音参考</label><span>OPTIONAL</span></div>
               {sourceSelector("audio")}
               <input ref={audioInput} id="cruise-audio" className="sr-only" type="file" accept="audio/*" disabled={editingDisabled || !config} onChange={(event) => { void upload(event.target.files?.[0], "audio"); event.target.value = ""; }} />
-              {sources.audio === "url" ? urlField("audio", "https://…/audio.mp3") : <div className={ui.mediaActions}><button type="button" disabled={editingDisabled || !config} onClick={() => audioInput.current?.click()}>{uploading === "audio" ? "Checking and uploading…" : assets.audio ? "Change audio" : "Choose audio file"}</button>{assets.audio && <button type="button" disabled={editingDisabled} onClick={() => removeAsset("audio")}>Remove</button>}</div>}
+              {sources.audio === "url" ? urlField("audio", "https://…/audio.mp3") : <div className={ui.mediaActions}><button type="button" disabled={editingDisabled || !config} onClick={() => audioInput.current?.click()}>{uploading.audio ? "Checking and uploading…" : assets.audio ? "Change audio" : "Choose audio file"}</button>{assets.audio && <button type="button" disabled={editingDisabled} onClick={() => removeAsset("audio")}>Remove</button>}</div>}
               {audioPreview && <audio className={ui.audioPreview} key={audioPreview} src={audioPreview} controls preload="metadata" onError={() => setError("The audio reference could not be previewed. A browser preview does not verify that SeeAPI can read a media URL.")} />}
               <p>可选：加入 2–15 秒且有权使用的声音参考。原曲不会自动包含，生成效果以模型返回为准。</p>
             </div>
           </details>
-          <label className={ui.consent}><input type="checkbox" checked={consent} disabled={editingDisabled} onChange={(event) => setConsent(event.target.checked)} /><span>I have permission to use this photo and reference material, and the person shown has agreed.</span></label>
+          <label className={ui.consent}><input type="checkbox" checked={consent} disabled={editingDisabled} onChange={(event) => setConsent(event.target.checked)} /><span>I have permission to use both photos and the reference material. Both people shown have agreed.</span></label>
           {error && <p className={ui.error} role="alert">{error}</p>}
           {loginRequired && config && <p className={ui.error}><Link href={loginUrl}>Sign in again to continue.</Link></p>}
-          <button className={ui.generate} type="submit" disabled={editingDisabled || !config?.capabilities.generationEnabled || loginRequired || !consent}><Sparkles size={17} aria-hidden="true" />{starting ? "Submitting your generation…" : active ? "A generation is awaiting its result" : job && terminal(job.status) ? "Generate again · uses SeeAPI credits" : "Generate video · uses SeeAPI credits"}<ArrowUpRight size={16} aria-hidden="true" /></button>
+          <button className={ui.generate} type="submit" disabled={editingDisabled || !generationEnabled || loginRequired || !consent}><Sparkles size={17} aria-hidden="true" />{starting ? "Submitting your generation…" : active ? "A generation is awaiting its result" : job && terminal(job.status) ? "Generate again · uses SeeAPI credits" : "Generate video · uses SeeAPI credits"}<ArrowUpRight size={16} aria-hidden="true" /></button>
           <p className={ui.costNote}>This starts a real SeeAPI generation. Editing and previewing inputs do not start a task.</p>
         </form>
         <aside className={ui.output} aria-labelledby="cruise-result-heading">
@@ -425,10 +448,10 @@ export default function CruiseGenerator() {
             {paused && <p className={ui.resultHint}>Automatic status checking is paused. Your existing task has not been marked failed.</p>}
             {missingTask && <div className={ui.missingTask}><p>This account has no task under the saved ID. You can clear this browser’s recovery record to prepare a new request. This action does not start a generation.</p><button type="button" disabled={checking || starting} onClick={clearMissingTask}>Clear recovery record</button></div>}
             <button className={ui.checkTask} type="button" disabled={checking || starting} onClick={() => void checkTask()}><RefreshCw size={14} className={checking ? ui.spin : undefined} aria-hidden="true" />{checking ? "Checking task…" : !job || job.status === "submission_unknown" ? "Check / recover this task" : paused ? "Resume status checking" : "Refresh task status"}</button>
-            {!job && submittedBody.current && !starting && <button className={ui.retrySame} type="button" disabled={checking} onClick={() => void retrySubmission()}>Resend the same request · keep its ID</button>}
+            {!job && submittedBody.current && !starting && <button className={ui.retrySame} type="button" disabled={checking || !supportsTwoPhotos} onClick={() => void retrySubmission()}>Resend the same request · keep its ID</button>}
             <dl className={ui.taskDetails}><div><dt>Task</dt><dd>{job?.id || savedTask?.requestId}</dd></div>{job?.providerTaskId && <div><dt>SeeAPI task</dt><dd>{job.providerTaskId}</dd></div>}{savedTask && <div><dt>Request ID</dt><dd>{savedTask.requestId}</dd></div>}{job && <div><dt>Status</dt><dd>{job.status}</dd></div>}{typeof job?.estimatedCredits === "number" && <div><dt>Estimated provider credits</dt><dd>{job.estimatedCredits}</dd></div>}{typeof job?.consumedCredits === "number" && <div><dt>Consumed provider credits</dt><dd>{job.consumedCredits}</dd></div>}{typeof job?.refundedCredits === "number" && <div><dt>Returned provider credits</dt><dd>{job.refundedCredits}</dd></div>}</dl>
             <p className={ui.resultHint}>Only task identifiers are saved in this browser. Provider credits are separate from any future website credits.</p>
-          </div> : <div className={ui.emptyResult}><div className={ui.resultIcon}><Film size={29} strokeWidth={1.3} aria-hidden="true" /></div><h4>Your next moment starts here.</h4><p>Choose your photo and review the reference. Your generated video will appear here when the task succeeds.</p><span><Check size={13} aria-hidden="true" /> No generation submitted</span></div>}
+          </div> : <div className={ui.emptyResult}><div className={ui.resultIcon}><Film size={29} strokeWidth={1.3} aria-hidden="true" /></div><h4>Your next moment starts here.</h4><p>Choose a dancer photo and a partner photo, then review the reference. Your generated video will appear here when the task succeeds.</p><span><Check size={13} aria-hidden="true" /> No generation submitted</span></div>}
           <div className={ui.outputFooter}><span>24K MAGIC</span><span>CRUISE DECK DANCE</span></div>
         </aside>
       </div>
