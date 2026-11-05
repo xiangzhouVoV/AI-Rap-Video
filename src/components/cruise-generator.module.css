@@ -55,6 +55,9 @@
 .outputHeading h3 { font-size: 12px; font-weight: 500; }
 .outputHeading > span { font-size: 8px; letter-spacing: 1px; color: #8d858f; }
 .taskResult { flex: 1; padding: 22px 0; min-width: 0; }
+.previousResult { border-top: 1px solid var(--line); padding: 14px 0; min-width: 0; }
+.previousResult > summary { width: fit-content; cursor: pointer; color: #cbbda9; font-size: 12px; }
+.previousResult[open] > summary { margin-bottom: 16px; }
 .status { display: flex; align-items: center; gap: 8px; color: #d6b482; font-size: 12px; line-height: 1.7; margin-bottom: 17px; }
 .status strong { font-weight: 500; }
 .status > svg { flex-shrink: 0; }
@@ -81,7 +84,6 @@
 .resultIcon { display: grid; place-items: center; width: 71px; height: 84px; border-radius: 17px; border: 1px solid #493f35; color: #aa8d64; background: linear-gradient(145deg, #46352a40, #17171a); box-shadow: 0 8px 60px #b7813720; transform: rotate(-5deg); margin-bottom: 28px; }
 .emptyResult h4 { font-size: 15px; letter-spacing: -.4px; font-weight: 500; margin: 0; }
 .emptyResult p { color: #9d939f; font-size: 11px; line-height: 1.9; max-width: 245px; margin-top: 11px; }
-.emptyResult > span { display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border: 1px solid #343034; border-radius: 99px; font-size: 9px; color: #a79fa9; margin-top: 24px; }
 .outputFooter { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #29262c; padding-top: 17px; font-size: 8px; letter-spacing: 1.5px; color: #716975; }
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }

@@ -110,6 +110,8 @@ export default function CruiseGenerator() {
   const photoInputs = useRef<Partial<Record<Slot, HTMLInputElement | null>>>({});
   const templateReady = config?.template.version === templateVersion;
   const earlierJob = job?.templateVersion != null && job.templateVersion < templateVersion;
+  const previousResult = earlierJob && terminal(job.status) && !savedTask?.retryId;
+  const ResultPanel = previousResult ? "details" : "div";
   const templatePaused = config?.capabilities.templatePaused === true || job?.templateVersion === templateVersion && job.templatePaused === true;
   const generationEnabled = templateReady && config?.capabilities.generationEnabled === true && !templatePaused;
   const canRetry = job?.canRetry === true && templateReady && (generationEnabled || templatePaused);
@@ -240,7 +242,7 @@ export default function CruiseGenerator() {
 
   async function generate(event: React.FormEvent) {
     event.preventDefault();
-    if (editingDisabled || !generationEnabled) return;
+    if (checking || editingDisabled || !generationEnabled) return;
     setError("");
     const previousTask = savedRef.current;
     const previousJob = job;
@@ -397,15 +399,19 @@ export default function CruiseGenerator() {
           <label className={ui.consent}><input type="checkbox" checked={consent} disabled={editingDisabled} onChange={(event) => setConsent(event.target.checked)} /><span>Both people have agreed to use their photos in this video.</span></label>
           {error && <p className={ui.error} role="alert">{error}</p>}
           {loginRequired && config && <p className={ui.error}><Link href={loginUrl}>Sign in again to continue.</Link></p>}
-          <button className={ui.generate} type="submit" disabled={editingDisabled || !generationEnabled || loginRequired || !consent}><Sparkles size={17} aria-hidden="true" />{templatePaused ? "New videos paused" : starting ? "Submitting your generation…" : active ? "A generation is awaiting its result" : job && terminal(job.status) && !earlierJob ? "Generate again · uses SeeAPI credits" : "Generate video · uses SeeAPI credits"}<ArrowUpRight size={16} aria-hidden="true" /></button>
+          <button className={ui.generate} type="submit" disabled={checking || editingDisabled || !generationEnabled || loginRequired || !consent}><Sparkles size={17} aria-hidden="true" />{templatePaused ? "New videos paused" : starting ? "Submitting your generation…" : active ? "A generation is awaiting its result" : job && terminal(job.status) && !earlierJob ? "Generate again · uses SeeAPI credits" : "Generate video · uses SeeAPI credits"}<ArrowUpRight size={16} aria-hidden="true" /></button>
           {!templatePaused && <p className={ui.costNote}>This starts a real SeeAPI generation. Editing and previewing inputs do not start a task.</p>}
         </form>
         <aside className={ui.output} aria-labelledby="cruise-result-heading">
-          <div className={ui.outputHeading}><h3 id="cruise-result-heading">Your result</h3><span>REAL GENERATION</span></div>
-          {job || savedTask ? <div className={ui.taskResult}>
+          <div className={ui.outputHeading}><h3 id="cruise-result-heading">{earlierJob && !previousResult ? "Earlier template task" : "Your result"}</h3><span>REAL GENERATION</span></div>
+          {((!job && !savedTask) || previousResult) && <div className={ui.emptyResult}>
+            <div className={ui.resultIcon}><Film size={29} strokeWidth={1.3} aria-hidden="true" /></div>
+            {templatePaused ? <p>No generation submitted</p> : <><h4>{uploading.photo || uploading.partnerPhoto ? "Uploading your photos…" : "Your video will appear here"}</h4><p>Choose both photos and select Generate video to start.</p></>}
+          </div>}
+          {(job || savedTask) && <ResultPanel className={previousResult ? ui.previousResult : ui.taskResult}>
+            {previousResult && <summary>Previous template task</summary>}
             <div className={`${ui.status} ${job?.status === "succeeded" ? ui.success : ""}`} role="status">{job?.status === "succeeded" ? <Check size={16} aria-hidden="true" /> : job && !terminal(job.status) && !paused && job.status !== "submission_unknown" || starting ? <Loader2 size={16} className={ui.spin} aria-hidden="true" /> : <Film size={16} aria-hidden="true" />}<strong>{job ? statusLabels[job.status] : starting ? "Submitting to SeeAPI" : checking ? "Recovering your saved task" : "Submission needs checking"}</strong></div>
             {job?.status === "succeeded" && job.videoUrl ? <><video className={ui.resultVideo} src={job.videoUrl} controls playsInline preload="metadata" onError={() => setTaskError("The result video could not be played here. Open the original result or check the task again.")} /><div className={ui.resultActions}><a href={job.videoUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={13} aria-hidden="true" /> Open result</a><a href={videoDownloadUrl(job.videoUrl)} download="24k-magic-cruise-dance.mp4"><ArrowDownToLine size={13} aria-hidden="true" /> Download video</a></div></> : <div className={ui.taskPlaceholder}><Film size={35} strokeWidth={1.2} aria-hidden="true" /><p>{job?.status === "succeeded" ? "SeeAPI marked this task complete but has not returned a video URL." : job && terminal(job.status) ? "No playable result was returned for this task." : job?.status === "submission_unknown" || !job && !starting ? "Check or recover this task before starting another generation. A lost response does not mean the task failed." : "Your video is being prepared. This page checks its status every 10 seconds."}</p></div>}
-            {earlierJob && <p className={ui.resultHint}>This task used an earlier version of the template.</p>}
             {job?.error && <p className={ui.error}>{job.error}</p>}
             {taskError && <p className={ui.error} role="alert">{taskError}</p>}
             {paused && <p className={ui.resultHint}>Automatic status checking is paused. Your existing task has not been marked failed.</p>}
@@ -417,7 +423,7 @@ export default function CruiseGenerator() {
             {!job && submittedBody.current && !starting && <button className={ui.retrySame} type="button" disabled={checking || !generationEnabled} onClick={() => void retrySubmission()}>Resend the same request · keep its ID</button>}
             <dl className={ui.taskDetails}><div><dt>Task</dt><dd>{job?.id || savedTask?.requestId}</dd></div>{job?.providerTaskId && <div><dt>SeeAPI task</dt><dd>{job.providerTaskId}</dd></div>}{savedTask && <div><dt>Request ID</dt><dd>{savedTask.requestId}</dd></div>}{job && <div><dt>Status</dt><dd>{job.status}</dd></div>}{typeof job?.estimatedCredits === "number" && <div><dt>Estimated provider credits</dt><dd>{job.estimatedCredits}</dd></div>}{typeof job?.consumedCredits === "number" && <div><dt>Consumed provider credits</dt><dd>{job.consumedCredits}</dd></div>}{typeof job?.refundedCredits === "number" && <div><dt>Returned provider credits</dt><dd>{job.refundedCredits}</dd></div>}</dl>
             <p className={ui.resultHint}>Only task identifiers are saved in this browser. Provider credits are separate from any future website credits.</p>
-          </div> : <div className={ui.emptyResult}><div className={ui.resultIcon}><Film size={29} strokeWidth={1.3} aria-hidden="true" /></div>{!templatePaused && <><h4>Your next moment starts here.</h4><p>Choose the dancer and partner photos, then generate your video. Your finished dance will appear here.</p></>}<span><Check size={13} aria-hidden="true" /> No generation submitted</span></div>}
+          </ResultPanel>}
           <div className={ui.outputFooter}><span>24K MAGIC</span><span>CRUISE DECK DANCE</span></div>
         </aside>
       </div>
