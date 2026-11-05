@@ -19,6 +19,9 @@ const config: NextConfig = {
     return [
       { source: "/api/auth/:path*", destination: `${origin}/api/auth/:path*` },
       { source: "/api/me", destination: `${origin}/api/me` },
+      { source: "/api/templates/:path*", destination: `${origin}/api/templates/:path*` },
+      { source: "/api/template-media/:path*", destination: `${origin}/api/template-media/:path*` },
+      { source: "/api/template-generations/:path*", destination: `${origin}/api/template-generations/:path*` },
     ];
   },
   async headers() {

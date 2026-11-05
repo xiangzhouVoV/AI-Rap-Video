@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Ship, Waves } from "lucide-react";
 import { styles } from "@/lib/content";
 import { RelatedLinks } from "@/components/content-sections";
+import ui from "./effects.module.css";
 
 export const metadata: Metadata = {
   title: "AI Video Effects — Find your next scene",
@@ -38,6 +39,10 @@ export default function EffectsPage() {
         </Link>
       </section>
       <section className="section" aria-label="Explore available effects">
+        <Link className={ui.labCard} href="/effects/24k-magic">
+          <div className={ui.labArtwork} aria-hidden="true"><Ship size={37} strokeWidth={1.2} /><Waves size={68} strokeWidth={.8} /><span>24K</span></div>
+          <div className={ui.labCopy}><span className={ui.labBadge}>TEMPLATE LAB · EXPERIMENTAL</span><h2>24K Magic. Your moment on deck.</h2><p>Bring your photo and a dance reference to a cruise-deck scene. Real generation, editable settings.</p><span className={ui.labLink}>Explore the cruise dance <ArrowUpRight size={14} aria-hidden="true" /></span></div>
+        </Link>
         <div className="effect-grid">
           {[styles[3], ...styles.slice(0, 3)].map((style) => (
             <Link

@@ -1,0 +1,17 @@
+.labCard { display: grid; grid-template-columns: 220px 1fr; border: 1px solid #4c4937; border-radius: 18px; overflow: hidden; background: linear-gradient(110deg, #1b2922, #1c191c 65%); margin-bottom: 28px; transition: border-color .2s; }
+.labCard:hover { border-color: #b39662; }
+.labArtwork { position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column; min-height: 190px; padding: 25px; color: #ccba86; background: radial-gradient(ellipse at 50% 20%, #4c5e392e, transparent), #14201c; overflow: hidden; border-right: 1px solid #3f4434; }
+.labArtwork > svg { z-index: 1; }
+.labArtwork > svg + svg { color: #7c9480; margin-top: 5px; }
+.labArtwork > span { position: absolute; bottom: -18px; right: -5px; font-size: 96px; font-family: "Manrope", var(--font); font-weight: 800; letter-spacing: -9px; color: #d6c1850c; }
+.labCopy { padding: 28px 30px; }
+.labBadge { font-size: 9px; letter-spacing: 1.5px; color: #d9b576; }
+.labCopy h2 { font-size: 24px; letter-spacing: -.8px; margin-top: 10px; }
+.labCopy p { color: #b3acae; font-size: 12px; max-width: 460px; line-height: 1.8; margin-top: 8px; }
+.labLink { display: inline-flex; align-items: center; gap: 7px; color: #e0bd86; font-size: 11px; font-weight: 600; margin-top: 18px; }
+@media (max-width: 650px) {
+  .labCard { grid-template-columns: 1fr; }
+  .labArtwork { min-height: 120px; border-right: 0; border-bottom: 1px solid #3f4434; }
+  .labCopy { padding: 23px; }
+  .labCopy h2 { font-size: 21px; }
+}
