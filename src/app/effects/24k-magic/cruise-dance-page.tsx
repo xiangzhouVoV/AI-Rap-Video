@@ -1,21 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight, AudioLines, Camera, Ship, Clock3 } from "lucide-react";
-import CruiseGenerator, { type CruiseTemplateVersion } from "@/components/cruise-generator";
+import CruiseGenerator from "@/components/cruise-generator";
+import { cruisePaths, type CruiseTemplateVersion } from "@/lib/cruise-routes";
 import { FaqSection } from "@/components/content-sections";
 import { siteName } from "@/lib/site";
 import ui from "./page.module.css";
 
 const editions = {
   4: {
-    path: "/effects/24k-magic",
     title: "24K Magic Cruise Dance — Put yourself on deck",
     description: "Make a 24K Magic cruise dance video with two photos. Cast the dancer on deck and the partner in the doorway, choose 480p or 720p, and download your video.",
     about: "The dancer steps and kicks across the deck. Their partner leans out of the doorway, glances at the red fire hose cabinet, then raises both hands in the final close-up.",
     format: "The dance runs about 20 seconds in a 16:9 widescreen frame and includes sound. You can choose 480p or 720p before starting.",
   },
   5: {
-    path: "/effects/24k-magic/full-length",
     title: "Full-Length 24K Magic Cruise Dance",
     description: "Make the full-length 24K Magic cruise dance with two photos. Recreate the chin pose, kicks and white-blanket scene in a 30-second video with the original audio.",
     about: "The dancer smiles with both hands tucked beside their chin. After the doorway partner spots the red cabinet, the dance returns to the open deck for a split and a high kick beside the partner in a white blanket.",
@@ -24,7 +23,8 @@ const editions = {
 } as const;
 
 export function cruiseMetadata(version: CruiseTemplateVersion): Metadata {
-  const { title, description, path } = editions[version];
+  const { title, description } = editions[version];
+  const path = cruisePaths[version];
   return {
     title,
     description,
@@ -72,8 +72,8 @@ export default function CruiseDancePage({ version }: { version: CruiseTemplateVe
             <span><Clock3 size={15} aria-hidden="true" /> About {fullLength ? 30 : 20} seconds</span>
             <span><AudioLines size={15} aria-hidden="true" /> {fullLength ? "Original audio" : "Sound included"}</span>
           </div>
-          <Link className={ui.editionLink} href={editions[fullLength ? 4 : 5].path}>
-            {fullLength ? "Use the 20-second version" : "Try the full-length dance"} <ArrowUpRight size={14} aria-hidden="true" />
+          <Link className={ui.editionLink} href={cruisePaths[fullLength ? 4 : 5]}>
+            {fullLength ? "Use the 20-second cartoon version" : "Try the full-length dance"} <ArrowUpRight size={14} aria-hidden="true" />
           </Link>
         </div>
         <div className={ui.templateNote}>

@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowDownToLine, ArrowUpRight, Check, ExternalLink, Film, ImagePlus, Loader2, RefreshCw, Sparkles, Upload, X } from "lucide-react";
+import { cruisePaths, type CruiseTemplateVersion } from "@/lib/cruise-routes";
 import ui from "./cruise-generator.module.css";
 
 const storagePrefix = "airaptovideo:24k-magic:task:v1";
-export type CruiseTemplateVersion = 4 | 5;
 const photoSlots = ["photo", "partnerPhoto"] as const;
 type Slot = typeof photoSlots[number];
 const slotLabels: Record<Slot, string> = { photo: "dancer photo", partnerPhoto: "partner photo" };
@@ -82,11 +82,11 @@ const statusLabels: Record<Job["status"], string> = {
   succeeded: "Your video is ready", failed: "Generation failed", canceled: "Task canceled", refunded: "Task refunded", expired: "Task expired",
 };
 
-export default function CruiseGenerator({ templateVersion = 4 }: { templateVersion?: CruiseTemplateVersion }) {
+export default function CruiseGenerator({ templateVersion }: { templateVersion: CruiseTemplateVersion }) {
   const fullLength = templateVersion === 5;
-  const configUrl = fullLength ? "/api/templates/24k-magic?version=5" : "/api/templates/24k-magic";
+  const configUrl = `/api/templates/24k-magic?version=${templateVersion}`;
   const taskKeyPrefix = fullLength ? `${storagePrefix}:full-length` : storagePrefix;
-  const pagePath = fullLength ? "/effects/24k-magic/full-length" : "/effects/24k-magic";
+  const pagePath = cruisePaths[templateVersion];
   const loginUrl = `/login?returnTo=${encodeURIComponent(`${pagePath}#cruise-create`)}`;
   const [config, setConfig] = useState<Config | null>(null);
   const [configError, setConfigError] = useState("");
@@ -369,7 +369,7 @@ export default function CruiseGenerator({ templateVersion = 4 }: { templateVersi
       {config && !generationEnabled && <div className={ui.configNotice} role="status">
         <span>{templatePaused ? config.capabilities.reason || "New videos are paused while we update this template." : templateReady ? "This template is temporarily unavailable." : "The template is being updated. Please check again shortly."}</span>
         {portraitsPaused
-          ? <Link href="/effects/24k-magic#cruise-create">Try the cartoon version <ArrowUpRight size={13} aria-hidden="true" /></Link>
+          ? <Link href={`${cruisePaths[4]}#cruise-create`}>Try the cartoon version <ArrowUpRight size={13} aria-hidden="true" /></Link>
           : <button type="button" onClick={() => setConfigVersion((value) => value + 1)}>Check again</button>}
       </div>}
       <div className={ui.layout}>

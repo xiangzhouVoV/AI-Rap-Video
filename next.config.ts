@@ -11,6 +11,13 @@ const config: NextConfig = {
     "libheif-js",
   ],
   poweredByHeader: false,
+  async redirects() {
+    return [{
+      source: "/effects/24k-magic/full-length",
+      destination: "/effects/24k-magic",
+      permanent: false,
+    }];
+  },
   async rewrites() {
     // Cloudflare routes these directly to the backend in production.
     const backend = process.env.AUTH_BACKEND_URL;

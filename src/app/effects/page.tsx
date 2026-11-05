@@ -41,7 +41,7 @@ export default function EffectsPage() {
       <section className="section" aria-label="Explore available effects">
         <Link className={ui.labCard} href="/effects/24k-magic">
           <div className={ui.labArtwork} aria-hidden="true"><Ship size={37} strokeWidth={1.2} /><Waves size={68} strokeWidth={.8} /><span>24K</span></div>
-          <div className={ui.labCopy}><span className={ui.labBadge}>TEMPLATE LAB · EXPERIMENTAL</span><h2>24K Magic. Your moment on deck.</h2><p>Cast the deck dancer and the doorway partner with two photos to make your own 24K Magic dance video.</p><span className={ui.labLink}>Explore the cruise dance <ArrowUpRight size={14} aria-hidden="true" /></span></div>
+          <div className={ui.labCopy}><span className={ui.labBadge}>TEMPLATE LAB · EXPERIMENTAL</span><h2>24K Magic. Your moment on deck.</h2><p>Explore the full-length cruise dance, from the chin pose to the white-blanket duet on deck.</p><span className={ui.labLink}>Explore the cruise dance <ArrowUpRight size={14} aria-hidden="true" /></span></div>
         </Link>
         <div className="effect-grid">
           {[styles[3], ...styles.slice(0, 3)].map((style) => (

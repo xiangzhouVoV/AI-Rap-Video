@@ -1,7 +1,7 @@
 import CruiseDancePage, { cruiseMetadata } from "../cruise-dance-page";
 
-export const metadata = cruiseMetadata(5);
+export const metadata = cruiseMetadata(4);
 
 export default function Page() {
-  return <CruiseDancePage version={5} />;
+  return <CruiseDancePage version={4} />;
 }
