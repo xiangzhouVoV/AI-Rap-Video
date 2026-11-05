@@ -14,7 +14,7 @@ type Asset = { id: string; url: string; externalReady?: boolean };
 type Config = {
   userId: string;
   template: { version: number };
-  capabilities: { generationEnabled: boolean; uploadsPublic: boolean; templatePaused?: boolean; reason?: string };
+  capabilities: { generationEnabled: boolean; uploadsPublic: boolean; templatePaused?: boolean; pauseReason?: string; reason?: string };
 };
 type Job = {
   id: string;
@@ -117,8 +117,10 @@ export default function CruiseGenerator({ templateVersion = 4 }: { templateVersi
   const previousResult = earlierJob && terminal(job.status) && !savedTask?.retryId;
   const ResultPanel = previousResult ? "details" : "div";
   const templatePaused = config?.capabilities.templatePaused === true || job?.templateVersion === templateVersion && job.templatePaused === true;
+  const portraitsPaused = fullLength && config?.capabilities.templatePaused === true && config.capabilities.pauseReason === "portrait_replacement";
   const generationEnabled = templateReady && config?.capabilities.generationEnabled === true && !templatePaused;
-  const canRetry = job?.canRetry === true && templateReady && (generationEnabled || templatePaused);
+  const canRetry = job?.canRetry === true && templateReady && (generationEnabled || templatePaused)
+    && (!portraitsPaused || job.retryUsesCredits === false);
   const active = starting || !!savedTask?.retryId || !!job && !terminal(job.status) || !!savedTask && !job;
   const inputsLocked = active || templatePaused;
   const editingDisabled = inputsLocked || Object.values(uploading).some(Boolean);
@@ -364,7 +366,12 @@ export default function CruiseGenerator({ templateVersion = 4 }: { templateVersi
     <section className={ui.lab} id="cruise-create" aria-labelledby="cruise-lab-heading">
       <div className={ui.header}><div><p className={ui.eyebrow}>YOUR CREATIVE SPACE</p><h2 id="cruise-lab-heading">Make the deck yours.</h2></div><span className={ui.badge}><span /> EXPERIMENTAL</span></div>
       {!config && <div className={ui.configNotice} role="status">{loginRequired ? <><span>Sign in to create your video.</span><Link href={loginUrl}>Sign in <ArrowUpRight size={13} aria-hidden="true" /></Link></> : configError ? <><span>{configError}</span><button type="button" onClick={() => setConfigVersion((value) => value + 1)}>Retry connection</button></> : <span><Loader2 size={13} className={ui.spin} aria-hidden="true" /> Checking generation access…</span>}</div>}
-      {config && !generationEnabled && <div className={ui.configNotice} role="status"><span>{templatePaused ? config.capabilities.reason || "New videos are paused while we update this template." : templateReady ? "This template is temporarily unavailable." : "The template is being updated. Please check again shortly."}</span><button type="button" onClick={() => setConfigVersion((value) => value + 1)}>Check again</button></div>}
+      {config && !generationEnabled && <div className={ui.configNotice} role="status">
+        <span>{templatePaused ? config.capabilities.reason || "New videos are paused while we update this template." : templateReady ? "This template is temporarily unavailable." : "The template is being updated. Please check again shortly."}</span>
+        {portraitsPaused
+          ? <Link href="/effects/24k-magic#cruise-create">Try the cartoon version <ArrowUpRight size={13} aria-hidden="true" /></Link>
+          : <button type="button" onClick={() => setConfigVersion((value) => value + 1)}>Check again</button>}
+      </div>}
       <div className={ui.layout}>
         <form className={ui.form} onSubmit={generate}>
           <div className={ui.inputs}>
