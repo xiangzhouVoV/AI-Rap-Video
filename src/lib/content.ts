@@ -1,3 +1,9 @@
+import { creditPacks, formatPackPrice } from "./credit-packs";
+
+const packPrices = Object.values(creditPacks)
+  .map(({ name, amountCents }) => `${name} ${formatPackPrice(amountCents)}`)
+  .join(", ");
+
 export type FaqItem = {
   question: string;
   answer: string;
@@ -97,7 +103,7 @@ export const homeFaqs: FaqItem[] = [
   {
     question: "Can I try my first video for free?",
     answer:
-      "Your first preview is free and includes a watermark at 480p. If you like the result, choose a one-time credit pack to unlock an available HD download without the watermark. There is no subscription.",
+      `Your first preview is free and includes a watermark at 480p. If you like the result, choose a one-time credit pack to unlock an available HD download without the watermark. Pack prices in USD are ${packPrices}. There is no subscription.`,
   },
   {
     question: "Does the video include music or lip sync?",
@@ -135,7 +141,7 @@ export const crowdFaqs: FaqItem[] = [
   {
     question: "Can I try this effect for free?",
     answer:
-      "The first preview is free at 480p with a watermark. You can review it before choosing a one-time credit pack for an available HD download without the watermark.",
+      `The first preview is free at 480p with a watermark. You can review it before choosing a one-time credit pack for an available HD download without the watermark. Pack prices in USD are ${packPrices}.`,
   },
   {
     question: "Is the original song included?",

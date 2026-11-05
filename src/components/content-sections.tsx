@@ -151,7 +151,9 @@ export function ComparisonTable() {
         <a href="https://runway.com/pricing" target="_blank" rel="noreferrer">
           current plans
         </a>
-        . Comparison checked October 24, 2026.
+        . Comparison checked October 24, 2026. Runway is a trademark of its
+        respective owner. This comparison is based on publicly available
+        information as of October 24, 2026 and may change.
       </p>
     </section>
   );

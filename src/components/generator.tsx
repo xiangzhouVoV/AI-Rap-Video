@@ -29,6 +29,7 @@ import {
   X,
 } from "lucide-react";
 import { styles, variants } from "@/lib/content";
+import { creditPackIds, creditPacks, formatPackPrice, type CreditPackId } from "@/lib/credit-packs";
 import TemplateControl from "./template-control";
 import {
   GENERATOR_DRAFT_KEY,
@@ -808,7 +809,7 @@ export default function Generator({
               <Check size={12} /> No subscription
             </span>
           </div>
-          {demoMode && (
+          {process.env.NEXT_PUBLIC_PAYMENTS_LIVE !== "true" && (
             <p className="demo-disclosure">
               <span /> Interactive preview · AI generation and payments aren’t
               connected yet.
@@ -1094,30 +1095,10 @@ function PricingModal({
   checkoutEnabled: boolean;
   onClose: () => void;
 }) {
-  const [pack, setPack] = useState("trio");
+  const [pack, setPack] = useState<CreditPackId>("trio");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const packs = [
-    {
-      id: "single",
-      name: "Single",
-      price: "$7.99",
-      detail: "For that one perfect moment.",
-    },
-    {
-      id: "trio",
-      name: "Trio",
-      price: "$19.90",
-      detail: "A few more ideas. A few more takes.",
-    },
-    {
-      id: "party",
-      name: "Party",
-      price: "$49.90",
-      detail: "Keep the creative energy going.",
-    },
-  ];
   useEffect(() => {
     const dialog = dialogRef.current;
     dialog?.showModal();
@@ -1164,26 +1145,26 @@ function PricingModal({
         One-time credit packs. No subscription. Pick your pack first.
       </p>
       <div className="pack-grid">
-        {packs.map((item) => (
+        {creditPackIds.map((id) => (
           <button
             type="button"
-            key={item.id}
-            onClick={() => setPack(item.id)}
-            aria-pressed={pack === item.id}
-            className={`pack-card ${pack === item.id ? "selected" : ""}`}
+            key={id}
+            onClick={() => setPack(id)}
+            aria-pressed={pack === id}
+            className={`pack-card ${pack === id ? "selected" : ""}`}
           >
-            {item.id === "trio" && (
+            {id === "trio" && (
               <span className="pack-badge">A LITTLE MORE ROOM TO PLAY</span>
             )}
             <span className="pack-name">
-              {item.name}
+              {creditPacks[id].name}
               <span className="pack-radio">
-                {pack === item.id && <Check size={12} />}
+                {pack === id && <Check size={12} />}
               </span>
             </span>
-            <strong>{item.price}</strong>
+            <strong>{formatPackPrice(creditPacks[id].amountCents)}</strong>
             <span className="pack-once">one-time payment</span>
-            <p>{item.detail}</p>
+            <p>{creditPacks[id].detail}</p>
           </button>
         ))}
       </div>
@@ -1223,7 +1204,7 @@ function PricingModal({
         <span>
           {demo
             ? "Checkout unavailable in preview"
-            : !checkoutEnabled ? "Checkout is not connected yet" : `Continue with ${packs.find((item) => item.id === pack)?.name}`}
+            : !checkoutEnabled ? "Checkout is not connected yet" : `Continue with ${creditPacks[pack].name}`}
         </span>
         <ArrowRight size={17} />
       </button>

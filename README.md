@@ -31,7 +31,7 @@ Cloudflare Workers Builds 配置：
 - 根目录：仓库根目录。
 - 构建命令：`npm run cf:build`。
 - 部署命令：`npx opennextjs-cloudflare deploy`。
-- 构建环境设置 `NEXT_PUBLIC_SITE_URL=https://airaptovideo.app` 和 `INDEXABLE=false`；本地代理 `AUTH_BACKEND_URL` 留空。
+- 生产构建读取仓库的 `.env.production`，其中 `NEXT_PUBLIC_ALLOW_INDEXING=true`、`NEXT_PUBLIC_PAYMENTS_LIVE=false`。Cloudflare Builds 的同名变量优先；预览构建请显式设置 `NEXT_PUBLIC_ALLOW_INDEXING=false`。改动任一开关后需重新构建。本地代理 `AUTH_BACKEND_URL` 在生产环境留空。
 - 正式域名为 `airaptovideo.app`。`wrangler.jsonc` 已声明该主机名的 Custom Domain，部署时应用绑定；域名需在当前 Cloudflare 账号中处于 Active 状态。域名配置见 [Cloudflare 官方说明](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)。
 
 必须先运行 `npm run cf:build`，生成 `.open-next/worker.js`、静态资源及编译后的 OpenNext 配置，再执行部署。Wrangler 4.156.2 的真实 `deploy` 会先转交给 OpenNext，不能依赖 `wrangler.jsonc` 的构建钩子生成这些文件；`wrangler deploy --dry-run` 的路径不同，不能单独用它证明真实部署会先构建。
@@ -63,7 +63,7 @@ npm run preview   # 构建并以 Workers 运行时在 8788 端口预览
 
 视频和支付服务尚未确定。已定义可配置的 adapter 接口，见 [服务端 API 与接入契约](docs/api.md)。视频服务接入后可启用首次免费生成；付费需继续接入已确认的积分数量、真实支付通知、积分账本和高清无水印交付，不能仅填支付 URL 就视为完成上线。
 
-本地存储位于 gitignored 的 `.data/`。此适配器适用于有持久磁盘的单机 Node 服务；部署到无状态平台前需替换存储。不要将上传目录设在 `public/` 中。生产域名通过 `APP_ORIGIN` 和 `NEXT_PUBLIC_SITE_URL` 配置，默认 `INDEXABLE=false`；正式服务准备好后再设置为 `true` 并重新构建。
+本地存储位于 gitignored 的 `.data/`。此适配器适用于有持久磁盘的单机 Node 服务；部署到无状态平台前需替换存储。不要将上传目录设在 `public/` 中。正式站的 canonical、分享图和 sitemap 使用 `https://airaptovideo.app`，生产请求来源 `APP_ORIGIN` 应与其一致。`NEXT_PUBLIC_PAYMENTS_LIVE` 仅控制演示提示，实际收款仍由服务端控制。
 
 ## 项目文档
 

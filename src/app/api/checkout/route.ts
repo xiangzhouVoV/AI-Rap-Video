@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { creditPackIds, creditPacks } from "@/lib/credit-packs";
 import {
   ApiError,
   apiError,
@@ -18,11 +19,10 @@ import {
 export const runtime = "nodejs";
 const schema = z
   .object({
-    pack: z.enum(["single", "trio", "party"]),
+    pack: z.enum(creditPackIds),
     generationId: z.string().uuid(),
   })
   .strict();
-const prices = { single: 799, trio: 1990, party: 4990 } as const;
 
 export async function POST(request: Request) {
   try {
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
           pack: input.pack,
           mode: "payment",
           currency: "usd",
-          amountCents: prices[input.pack],
+          amountCents: creditPacks[input.pack].amountCents,
           generationId: job.id,
           providerGenerationId: job.providerId,
           fulfillment: "watermark-free-hd-download",

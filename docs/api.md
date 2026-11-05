@@ -217,4 +217,4 @@ Before enabling checkout, integrate and verify: payment-provider account and pro
 - Replace local storage when deploying without a durable single-host disk; add worker/queue reconciliation for jobs even when the browser closes.
 - Add production authentication/abuse controls, appropriate privacy/terms and support contact, retention cleanup, email delivery, and account/payment recovery.
 - Verify signed output URL lifetime, download headers, mobile Safari playback and real 480p/HD/watermark behavior.
-- Set `APP_ORIGIN` and `NEXT_PUBLIC_SITE_URL` to the real HTTPS origin, then enable `INDEXABLE=true` only when the public site and actual service are ready.
+- Set `APP_ORIGIN=https://airaptovideo.app` on the public deployment. Production builds use this canonical domain and `NEXT_PUBLIC_ALLOW_INDEXING=true`; set that flag to false on preview builds.

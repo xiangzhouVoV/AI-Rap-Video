@@ -9,6 +9,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/music-video-generator",
     "/rap-name-generator",
     "/effects/",
+    "/privacy",
+    "/terms",
+    "/refunds",
+    "/cookies",
   ].map((path) => ({
     url: `${siteUrl}${path}`,
     changeFrequency: "weekly",

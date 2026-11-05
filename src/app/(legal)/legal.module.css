@@ -1,0 +1,47 @@
+.policy {
+  width: min(100% - 40px, 74ch);
+  margin: 0 auto;
+  padding: clamp(36px, 6vw, 72px) 0;
+  font-size: 16px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.policy h1 {
+  font-size: clamp(32px, 5vw, 48px);
+  line-height: 1.15;
+}
+.policy header p {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.policy h2 {
+  margin-top: 32px;
+  font-size: 22px;
+  line-height: 1.35;
+}
+.policy p,
+.policy table {
+  margin-top: 16px;
+}
+.policy a {
+  color: var(--accent-light);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.policy table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.policy th,
+.policy td {
+  text-align: left;
+  vertical-align: top;
+  padding: 9px;
+  border: 1px solid var(--line);
+}
+.policy thead {
+  background: var(--paper);
+}

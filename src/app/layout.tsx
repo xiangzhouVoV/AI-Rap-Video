@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { ArrowUpRight, ChevronDown, Sparkles } from "lucide-react";
-import { siteName, siteUrl, indexable } from "@/lib/site";
+import { siteName, siteUrl, indexable, supportEmail } from "@/lib/site";
 import PageViewTracker from "@/components/page-view-tracker";
 import AccountControls from "@/components/account-controls";
 import "./globals.css";
@@ -100,6 +100,19 @@ export default function RootLayout({
             <span>
               Made for your main character era <Sparkles size={12} />
             </span>
+          </div>
+          <div className="footer-legal">
+            <nav aria-label="Legal">
+              <strong>Legal</strong>
+              <Link href="/privacy">Privacy</Link>
+              <span aria-hidden="true">·</span>
+              <Link href="/terms">Terms</Link>
+              <span aria-hidden="true">·</span>
+              <Link href="/refunds">Refunds</Link>
+              <span aria-hidden="true">·</span>
+              <Link href="/cookies">Cookies</Link>
+            </nav>
+            <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
           </div>
         </footer>
       </body>
