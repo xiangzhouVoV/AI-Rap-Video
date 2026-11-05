@@ -6,8 +6,7 @@ import { ArrowDownToLine, ArrowUpRight, Check, ExternalLink, Film, ImagePlus, Lo
 import ui from "./cruise-generator.module.css";
 
 const storagePrefix = "airaptovideo:24k-magic:task:v1";
-const templateVersion = 4;
-const loginUrl = "/login?returnTo=%2Feffects%2F24k-magic%23cruise-create";
+export type CruiseTemplateVersion = 4 | 5;
 const photoSlots = ["photo", "partnerPhoto"] as const;
 type Slot = typeof photoSlots[number];
 const slotLabels: Record<Slot, string> = { photo: "dancer photo", partnerPhoto: "partner photo" };
@@ -35,7 +34,7 @@ type Job = {
 };
 type SavedTask = { version: 1; requestId: string; jobId?: string; retryId?: string };
 type GenerationBody = {
-  templateId: "24k-magic"; templateVersion: typeof templateVersion; requestId: string;
+  templateId: "24k-magic"; templateVersion: CruiseTemplateVersion; requestId: string;
   photoId?: string; photoUrl?: string;
   partnerPhotoId?: string; partnerPhotoUrl?: string;
   resolution: string;
@@ -83,7 +82,12 @@ const statusLabels: Record<Job["status"], string> = {
   succeeded: "Your video is ready", failed: "Generation failed", canceled: "Task canceled", refunded: "Task refunded", expired: "Task expired",
 };
 
-export default function CruiseGenerator() {
+export default function CruiseGenerator({ templateVersion = 4 }: { templateVersion?: CruiseTemplateVersion }) {
+  const fullLength = templateVersion === 5;
+  const configUrl = fullLength ? "/api/templates/24k-magic?version=5" : "/api/templates/24k-magic";
+  const taskKeyPrefix = fullLength ? `${storagePrefix}:full-length` : storagePrefix;
+  const pagePath = fullLength ? "/effects/24k-magic/full-length" : "/effects/24k-magic";
+  const loginUrl = `/login?returnTo=${encodeURIComponent(`${pagePath}#cruise-create`)}`;
   const [config, setConfig] = useState<Config | null>(null);
   const [configError, setConfigError] = useState("");
   const [loginRequired, setLoginRequired] = useState(false);
@@ -152,10 +156,10 @@ export default function CruiseGenerator() {
     setSavedTask(null);
     setJob(null);
     setMissingTask(false);
-    void request<Config>("/api/templates/24k-magic", { signal: controller.signal }).then(async (value) => {
+    void request<Config>(configUrl, { signal: controller.signal }).then(async (value) => {
       if (!mounted) return;
       setConfig(value);
-      storageKey.current = `${storagePrefix}:${value.userId}`;
+      storageKey.current = `${taskKeyPrefix}:${value.userId}`;
       const stored = readSavedTask(storageKey.current);
       savedRef.current = stored;
       setSavedTask(stored);
@@ -175,7 +179,7 @@ export default function CruiseGenerator() {
       setConfigError((caught as Error).message);
     });
     return () => { mounted = false; controller.abort(); };
-  }, [configVersion]);
+  }, [configUrl, configVersion, taskKeyPrefix]);
 
   useEffect(() => {
     if (!job || terminal(job.status) || job.status === "submission_unknown" || paused || starting) return;
@@ -394,7 +398,7 @@ export default function CruiseGenerator() {
           {config && !config.capabilities.uploadsPublic && <p className={ui.mediaWarning}>To generate with your photos here, choose HTTPS URL and use a direct image link for each person.</p>}
           <div className={ui.settings}>
             <fieldset disabled={editingDisabled}><legend>Resolution</legend><div className={ui.segments}>{["480p", "720p"].map((value) => <button key={value} type="button" aria-pressed={resolution === value} onClick={() => setResolution(value)}>{value}</button>)}</div></fieldset>
-            <div className={ui.fixedSetting}><span>Video</span><strong>About 20 seconds · 16:9</strong></div>
+            <div className={ui.fixedSetting}><span>Video</span><strong>About {fullLength ? 30 : 20} seconds · 16:9</strong></div>
           </div>
           <label className={ui.consent}><input type="checkbox" checked={consent} disabled={editingDisabled} onChange={(event) => setConsent(event.target.checked)} /><span>Both people have agreed to use their photos in this video.</span></label>
           {error && <p className={ui.error} role="alert">{error}</p>}
