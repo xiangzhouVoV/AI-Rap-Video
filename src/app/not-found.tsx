@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+// Next.js adds noindex to 404 responses; clear the directive inherited from the layout.
+export const metadata: Metadata = { robots: null };
+
 export default function NotFound() {
   return (
     <section className="page-container empty-page">

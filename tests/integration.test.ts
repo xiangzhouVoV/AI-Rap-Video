@@ -182,11 +182,15 @@ describe('SSR pages and the complete demo API workflow', { concurrency: false },
     }
   });
 
-  it('returns real 404 statuses for prohibited and unimplemented keyword pages', async () => {
+  it('returns a 404 with a single noindex directive for unknown pages and effects', async () => {
     for (const route of ['/ai-rap-video-generator', '/rap-battle-video', '/diss-track-generator', '/fated-gaze', '/effects/i-found-you-in-the-crowd', '/effects/not-an-implemented-effect']) {
       const response = await fetch(`${app.origin}${route}`);
       assert.equal(response.status, 404, route);
-      await response.arrayBuffer();
+      const html = renderedHtml(await response.text());
+      const robots = html.match(/<meta\b[^>]*\bname="robots"[^>]*>/gi) ?? [];
+      assert.equal(robots.length, 1, `robots tag count for ${route}`);
+      assert.match(robots[0], /\bcontent="noindex"/i, route);
+      assert.match(html, /<footer\b[^>]*>[\s\S]*?href="mailto:support@airaptovideo\.app"[\s\S]*?<\/footer>/i, route);
     }
   });
 
