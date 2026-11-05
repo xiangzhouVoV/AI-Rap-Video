@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, ArrowUpRight, AudioLines, Camera, Ship, Waves } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, AudioLines, Camera, Ship, Clock3 } from "lucide-react";
 import CruiseGenerator from "@/components/cruise-generator";
 import { FaqSection } from "@/components/content-sections";
 import { siteName } from "@/lib/site";
@@ -8,7 +8,7 @@ import ui from "./page.module.css";
 
 const title = "24K Magic Cruise Dance — Put yourself on deck";
 const description =
-  "Cast two people in the 24K Magic cruise dance. Add a photo for the dancer and one for the partner, review your motion reference, and generate your video.";
+  "Make a 24K Magic cruise dance video with two photos. Cast your dancer and their blanket-wrapped partner, choose a resolution, and download the finished dance.";
 
 export const metadata: Metadata = {
   title,
@@ -30,22 +30,22 @@ const faqs = [
   {
     question: "What do I need to get started?",
     answer:
-      "Choose a clear, single-person photo for each role. Photo 1 plays the dancer in the yellow coverall. Photo 2 plays the partner in the shirt and tie who later peeks out from under the blanket. Review the dance reference before generating.",
+      "Choose a clear, single-person photo for each role. Photo 1 plays the dancer in the yellow coverall. Photo 2 plays the partner in the shirt and tie who later peeks out from under the blanket.",
   },
   {
-    question: "Will it reproduce the exact dance?",
+    question: "What happens in the video?",
     answer:
-      "The video reference guides the motion and each photo guides its own character’s appearance. Choreography, facial likeness and framing can vary between generations.",
+      "The dancer steps across the ship’s deck and drops into a split. Their partner watches from the doorway and peeks out from a white blanket in the final shot.",
   },
   {
-    question: "Does it include the original 24K Magic song?",
+    question: "How long is the finished video?",
     answer:
-      "Audio generation is enabled, but the original song, recording, and exact beat synchronization are not guaranteed. Listen to the generated result before deciding whether to add your own permitted audio in an editor.",
+      "The dance runs about 27 seconds in a 4:3 landscape frame. You can choose 480p or 720p before starting.",
   },
   {
     question: "Is this a free preview?",
     answer:
-      "This is a real-generation debugging page. Starting a generation uses the connected provider account and may consume its credits. The page does not offer a free allowance, sell a credit pack, or promise a refund.",
+      "Starting a video uses the connected provider account and may consume credits. You can select and preview both photos before starting.",
   },
 ];
 
@@ -58,31 +58,31 @@ export default function CruiseDancePage() {
             <ArrowLeft size={14} aria-hidden="true" /> All effects
           </Link>
           <p className={ui.eyebrow}><span /> 24K MAGIC · CRUISE DECK DANCE</p>
-          <h1 id="cruise-title">Your moment.<br /><span>On deck.</span></h1>
+          <h1 id="cruise-title">Make your own<br /><span>24K Magic Cruise Dance.</span></h1>
           <p className={ui.intro}>
             Cast the 24K Magic cruise dance with two photos. Choose who dances on deck and who peeks out from under the blanket.
           </p>
           <div className={ui.facts}>
             <span><Camera size={15} aria-hidden="true" /> Two photos</span>
-            <span><Waves size={15} aria-hidden="true" /> Reference-guided motion</span>
-            <span><AudioLines size={15} aria-hidden="true" /> Audio on</span>
+            <span><Clock3 size={15} aria-hidden="true" /> About 27 seconds</span>
+            <span><AudioLines size={15} aria-hidden="true" /> Sound included</span>
           </div>
         </div>
         <div className={ui.templateNote}>
           <div className={ui.shipMark}><Ship size={28} strokeWidth={1.4} aria-hidden="true" /></div>
-          <p className={ui.labLabel}>TEMPLATE LAB / 001</p>
-          <h2>A new scene, in the making.</h2>
-          <p>Review both photos, the reference, and your settings before starting a real generation.</p>
-          <a href="#cruise-create">Open the generation lab <ArrowUpRight size={15} aria-hidden="true" /></a>
+          <p className={ui.labLabel}>DANCE TEMPLATE</p>
+          <h2>Choose your cast.</h2>
+          <p>Add one photo for the dancer and another for the partner.</p>
+          <a href="#cruise-create">Choose your photos <ArrowUpRight size={15} aria-hidden="true" /></a>
         </div>
       </section>
 
       <CruiseGenerator />
 
-      <section className={ui.tips} aria-label="Photo and reference tips">
+      <section className={ui.tips} aria-label="Photo and video tips">
         <article><span>01 / YOUR PHOTOS</span><h2>Choose a face for each role.</h2><p>Pick a well-lit portrait of the dancer and a separate portrait of the blanket partner. Keep one face clearly visible in each.</p></article>
-        <article><span>02 / THE REFERENCE</span><h2>Set the scene in motion.</h2><p>Preview the actual reference clip. It guides the movement and the cruise-deck atmosphere.</p></article>
-        <article><span>03 / YOUR RESULT</span><h2>Watch. Listen. Refine.</h2><p>Check identity, choreography, and audio. Adjust the prompt before choosing to run another generation.</p></article>
+        <article><span>02 / VIDEO QUALITY</span><h2>Choose a resolution.</h2><p>Use 480p for a smaller video or 720p for more detail on faces and footwork.</p></article>
+        <article><span>03 / YOUR RESULT</span><h2>Download your dance.</h2><p>When the video is ready, play it here and download the MP4.</p></article>
       </section>
 
       <FaqSection items={faqs} title="Before you step on deck." />
